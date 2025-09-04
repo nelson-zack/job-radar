@@ -75,61 +75,268 @@ Notes and tips
 
 ## Roadmap
 
-### ✅ Phase 1: Foundation & Version Control (Today)
+### Phase 0: Baseline Setup & Version Control
 
-**Goal:** Clean baseline, better inputs, and git-backed versioning
+**What to build**
 
-- [ ] Upload to GitHub (public or private)
-- [ ] Polish `companies.json`  
-      ▸ Manually prune/test and refine to a high-confidence batch of ~50–100 companies  
-      ▸ Remove inactive or low-yield companies  
-      ▸ Prioritize those with regular junior hiring, US-Remote eligibility, and clear ATS structure
+- Upload the project to a version control system (e.g., GitHub).
+- Refine and prune the `companies.json` list to a high-confidence batch of ~50–100 companies.
+- Remove inactive or low-yield companies.
+- Prioritize companies with regular junior hiring, US-Remote eligibility, and clear ATS structure.
 
----
+**Why it matters**
 
-### 🔧 Phase 2: MVP Polish
+- Establishes a clean, maintainable codebase.
+- Ensures the input data is relevant and reliable.
+- Provides a foundation for iterative improvements.
 
-**Goal:** Improve accuracy, clarity, and usefulness of current output
+**Deliverables**
 
-- [ ] Add filtering summary at end of each run (total jobs scanned, filtered out by rule, etc.)
-- [ ] Improve false positive blocking (e.g., vague "Engineer" titles or misfit specialties)
-- [ ] Refine US-remote detection with flexible matching and description fallback
+- GitHub repository with initial commit.
+- Curated `companies.json` file.
+- Documentation for setup and usage.
 
----
+**Example outcome**
 
-### 📤 Phase 3: Output Enhancements
-
-**Goal:** Make results easier to use, share, and analyze
-
-- [ ] Ensure clean TXT and CSV output in `/output` folder
-- [ ] Optional Google Sheets export using `gspread` or Sheets API
+- A stable starting point with a manageable and relevant company list, enabling predictable scan results.
 
 ---
 
-### 🌐 Phase 4: New Providers (Expand Coverage)
+### Phase 1: Filtering Accuracy & Clarity
 
-**Goal:** Fetch jobs from more sources with minimal extra parsing
+**What to build**
 
-- [ ] Add Teamtailor support
-- [ ] Add Remotive API
-- [ ] Add Greenhouse Job Board API Search (broad query mode)
+- Add filtering summary at the end of each run (total jobs scanned, filtered out by rule, etc.).
+- Improve false positive blocking (e.g., vague "Engineer" titles or misfit specialties).
+- Refine US-remote detection with flexible matching and description fallback.
+
+**Why it matters**
+
+- Improves confidence in results.
+- Provides transparency about filtering decisions.
+- Reduces noise and irrelevant matches.
+
+**Deliverables**
+
+- Filtering summary output.
+- Enhanced filtering logic.
+- Better location and remote work detection.
+
+**Example outcome**
+
+- Clear reports showing how many jobs were found and filtered, with fewer irrelevant listings.
 
 ---
 
-### ⚙️ Phase 5: Automation & Scheduling
+### Phase 2: Performance Optimization
 
-**Goal:** Make it self-running and self-updating
+**What to build**
 
-- [ ] Add cron job (Mac/Linux) or Task Scheduler (Windows)
-- [ ] Optional webhook/Slack/email summary alerts
-- [ ] Store previous run hashes to avoid duplicate alerts
+- Optimize runtime by reducing slowdowns from HTML fetching and job parsing.
+- Implement early exits, caching, and parallelization where possible.
+
+**Why it matters**
+
+- Speeds up scans, enabling more frequent or larger runs.
+- Improves user experience with faster feedback.
+
+**Deliverables**
+
+- Refactored code with caching and concurrency.
+- Benchmarks showing improved runtime.
+
+**Example outcome**
+
+- Scan times reduced from minutes to seconds for typical company lists.
 
 ---
 
-### 🧪 Phase 6: Dev Experience + Testing
+### Phase 3: Expanded Provider Support
 
-**Goal:** Make the project easier to contribute to and test
+**What to build**
 
-- [ ] Add unit tests for filtering logic
-- [ ] Add `test_data/` folder with sample ATS listings
-- [ ] Add `--dev-mode` to run a small subset of companies for quick tests
+- Add support for the Remotive API.
+- Add Teamtailor API integration.
+- Add Greenhouse Job Board API Search (broad query mode).
+
+**Why it matters**
+
+- Increases coverage of job postings.
+- Captures more remote junior roles from diverse sources.
+
+**Deliverables**
+
+- New provider modules for Remotive, Teamtailor, and enhanced Greenhouse.
+- Updated documentation and tests.
+
+**Example outcome**
+
+- More comprehensive job listings from multiple ATS platforms.
+
+---
+
+### Phase 4: Output Enhancements
+
+**What to build**
+
+- Ensure clean TXT and CSV output in `/output` folder.
+- Add optional Google Sheets export using `gspread` or Sheets API.
+
+**Why it matters**
+
+- Makes results easier to analyze, share, and archive.
+- Supports integration with other tools and workflows.
+
+**Deliverables**
+
+- Export scripts for TXT, CSV, and Google Sheets.
+- Configuration options for output formats.
+
+**Example outcome**
+
+- Users can easily open results in spreadsheets or automate reporting.
+
+---
+
+### Phase 5: Automation & Scheduling
+
+**What to build**
+
+- Add cron job (Mac/Linux) or Task Scheduler (Windows) setup instructions.
+- Optional webhook/Slack/email summary alerts.
+- Store previous run hashes to avoid duplicate alerts.
+
+**Why it matters**
+
+- Enables hands-off, regular scanning.
+- Provides timely notifications about new matches.
+- Prevents alert fatigue with deduplication.
+
+**Deliverables**
+
+- Automation scripts and documentation.
+- Notification integration.
+- State persistence for alerting.
+
+**Example outcome**
+
+- Daily scans with automatic alerts sent only when new jobs appear.
+
+---
+
+### Phase 6: Dev Experience & Testing
+
+**What to build**
+
+- Add unit tests for filtering logic.
+- Add `test_data/` folder with sample ATS listings.
+- Add `--dev-mode` to run a small subset of companies for quick tests.
+
+**Why it matters**
+
+- Improves code quality and reliability.
+- Facilitates contributions and debugging.
+- Speeds up development cycles.
+
+**Deliverables**
+
+- Test suite with coverage reports.
+- Sample test data.
+- Development mode flag.
+
+**Example outcome**
+
+- Confident code changes with minimal regressions.
+
+---
+
+### Phase 7: User-Specific Filtering
+
+**What to build**
+
+- Add optional filters based on tech stack, job type, or other user preferences.
+- Allow configuration via command-line flags or config files.
+
+**Why it matters**
+
+- Tailors job matches to individual user needs.
+- Reduces irrelevant listings further.
+
+**Deliverables**
+
+- Extended filtering options.
+- User documentation.
+
+**Example outcome**
+
+- Users receive job matches aligned with their skills and interests.
+
+---
+
+### Phase 8: Improved Error Handling & Logging
+
+**What to build**
+
+- Enhance error reporting for failed company fetches.
+- Implement retry logic for rate-limited endpoints.
+- Provide detailed logs with configurable verbosity.
+
+**Why it matters**
+
+- Improves robustness and user troubleshooting.
+- Helps identify and fix issues quickly.
+
+**Deliverables**
+
+- Robust logging system.
+- Retry and backoff mechanisms.
+- User guidance on error interpretation.
+
+**Example outcome**
+
+- Fewer scan interruptions and clearer diagnostics.
+
+---
+
+### Phase 9: Community & Collaboration Features
+
+**What to build**
+
+- Add support for community-contributed company entries.
+- Implement a web dashboard for monitoring scans and results.
+- Enable sharing of filtered job lists.
+
+**Why it matters**
+
+- Builds a user community around the tool.
+- Enhances usability and engagement.
+- Facilitates collaboration and sharing.
+
+**Deliverables**
+
+- Contribution guidelines.
+- Web interface prototype.
+- Sharing mechanisms.
+
+**Example outcome**
+
+- Active user base contributing companies and sharing job leads.
+
+---
+
+## Focus Order
+
+If time or resources are limited, prioritize development in this order:
+
+1. Baseline Setup & Version Control (Phase 0)
+2. Filtering Accuracy & Clarity (Phase 1)
+3. Performance Optimization (Phase 2)
+4. Expanded Provider Support (Phase 3)
+5. Output Enhancements (Phase 4)
+6. Automation & Scheduling (Phase 5)
+7. Dev Experience & Testing (Phase 6)
+8. User-Specific Filtering (Phase 7)
+9. Improved Error Handling & Logging (Phase 8)
+10. Community & Collaboration Features (Phase 9)
+
+This sequence builds a solid foundation first, improves core functionality and performance, then expands coverage and usability, and finally adds advanced features and community support.
