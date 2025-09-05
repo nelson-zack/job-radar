@@ -31,3 +31,13 @@ try:
     register(WorkdayProvider())
 except Exception:
     pass
+try:
+    from .ashby import AshbyProvider  # noqa: F401
+    register(AshbyProvider())
+except Exception:
+    pass
+try:
+    from .workable import WorkableProvider  # noqa: F401
+    register(WorkableProvider())
+except Exception:
+    pass
