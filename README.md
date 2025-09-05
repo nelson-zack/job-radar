@@ -6,6 +6,17 @@ What this does
 - Filters for junior-friendly titles and remote United States eligibility.
 - Prints direct apply links so you avoid closed or generic career pages.
 
+## Current Features
+
+- **Provider normalization**: Modular connectors for Greenhouse, Lever, and Workday with consistent schema.
+- **Recency filtering**: `--recent-days N` keeps only roles posted within the last N days. Add `--require-date` to enforce strictness.
+- **Description snippets**: Fetches up to a capped number of job pages per provider to extract a plain-text snippet, enabling smarter junior detection.
+- **Junior-friendly filtering**: `--junior-only` with optional `--relax` mode checks both title and description.
+- **Skills filters**: `--skills-any` and `--skills-all` check against title+description. By default these act as soft scoring (ranking results). Add `--skills-hard` to enforce as hard gates.
+- **US-remote filtering**: `--us-remote-only` ensures listings are explicitly Remote (US). Enhanced detection in both location and description fields.
+- **Diagnostics**: Summary output shows counts, with-date/recent diagnostics, description snippet counts, and skills filter matches/top results.
+- **Output**: JSON outputs use ISO8601 for datetime fields to ensure compatibility.
+
 Project layout
 
 - job_radar.py - CLI that orchestrates fetching, filtering, and printing matches.
@@ -32,7 +43,7 @@ Step-by-step setup
 
    # Relaxed junior mode:
 
-   python job_radar.py companies.json --junior-only --relax-junior
+   python job_radar.py companies.json --junior-only --relax
 
 5. Review the output:
 
@@ -61,11 +72,43 @@ Step-by-step setup
 Tuning the filters
 
 - **Strict junior mode** (`--junior-only`): Accepts only titles with explicit junior signals — "junior", "new grad", "entry level", "software engineer i", or "associate" — and which clearly match engineering roles like Software Engineer/Developer (front end, back end, full‑stack, platform, web, mobile, data, ML, DevOps).
-- **Relaxed junior mode** (`--junior-only --relax-junior`): Also allows roles without explicit junior in the title if the description signals early‑career intent (e.g., “new grad,” “early career,” or ≤3 years experience). Senior/staff/lead titles and non‑engineering roles are still excluded.
+- **Relaxed junior mode** (`--junior-only --relax`): Also allows roles without explicit junior in the title if the description signals early‑career intent (e.g., “new grad,” “early career,” or ≤3 years experience). Senior/staff/lead titles and non‑engineering roles are still excluded.
 - Senior, staff, principal, lead, manager, and other seniority titles are excluded in all modes.
 - Non‑engineering titles (marketing, sales, account, operations, finance, legal, recruiting, design, architect, consultant, support, etc.) are excluded.
 - US‑remote detection is location‑first: requires “Remote” + “United States” in the location, or if location is empty, requires both terms in the job page. Use `--us-remote-only` and `--exclude-hybrid` to strictly enforce.
 - Use `--no-misfit-block` to include Security/Networking/Rust roles that are blocked by default.
+
+- **Recency filtering** (`--recent-days N`): Keep only jobs posted in the last N days (default 0 = disabled). Use `--require-date` to drop jobs with no date.
+- **Skills filters**:
+
+  - `--skills-any "python,react,fastapi"` keeps jobs that mention any of the terms in the title or snippet.
+  - `--skills-all "python,react"` keeps jobs that mention all listed terms.
+  - By default, skills are used for ranking only. Add `--skills-hard` to drop jobs without matches.
+
+- **Default skills config**:
+  - If you don’t pass `--skills-any` or `--skills-all`, the tool will attempt to load defaults from a JSON file.
+  - Search order:
+    1. `--skills-defaults /path/to/file.json` (explicit path)
+    2. `$RADAR_DEFAULT_SKILLS` environment variable (path)
+    3. `config/default_skills.json` (repo default)
+  - JSON format:
+    ```json
+    {
+      "any": [
+        "python",
+        "react",
+        "typescript",
+        "node",
+        "postgres",
+        "sql",
+        "django",
+        "fastapi",
+        "aws"
+      ],
+      "all": []
+    }
+    ```
+  - On load, a message will print showing which defaults were applied.
 
 Notes and tips
 
@@ -106,9 +149,10 @@ Notes and tips
 
 **What to build**
 
-- Add filtering summary at the end of each run (total jobs scanned, filtered out by rule, etc.).
+- ✅ Added filtering summary at the end of each run (total jobs scanned, filtered out by rule, etc.).
 - Improve false positive blocking (e.g., vague "Engineer" titles or misfit specialties).
 - Refine US-remote detection with flexible matching and description fallback.
+- ✅ Added recency, description snippets, and skills filters.
 
 **Why it matters**
 
