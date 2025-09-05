@@ -30,6 +30,127 @@ import os
 import requests
 from bs4 import BeautifulSoup
 
+# --- provider quota + description top-up helpers ---
+_PROVIDER_CAP_ENV = {
+    "greenhouse": "RADAR_DESC_CAP_GREENHOUSE",
+    "lever": "RADAR_DESC_CAP_LEVER",
+    "workday": "RADAR_DESC_CAP_WORKDAY",
+    "ashby": "RADAR_DESC_CAP_ASHBY",
+}
+
+_DEF_CAP_ENV = "RADAR_DESC_CAP"
+_DEF_TIMEOUT_ENV = "RADAR_DESC_TIMEOUT"
+_DEF_MAXCHARS_ENV = "RADAR_DESC_MAX_CHARS"
+
+
+def _cap_for_provider(provider_key: str) -> int:
+    env_name = _PROVIDER_CAP_ENV.get(provider_key.lower())
+    if env_name:
+        v = os.getenv(env_name)
+        if v is not None:
+            try:
+                return int(v)
+            except Exception:
+                pass
+    v = os.getenv(_DEF_CAP_ENV)
+    try:
+        return int(v) if v is not None else 30
+    except Exception:
+        return 30
+
+
+def _desc_timeout() -> float:
+    v = os.getenv(_DEF_TIMEOUT_ENV)
+    try:
+        return float(v) if v is not None else 8.0
+    except Exception:
+        return 8.0
+
+
+def _desc_max_chars() -> int:
+    v = os.getenv(_DEF_MAXCHARS_ENV)
+    try:
+        return int(v) if v is not None else 1200
+    except Exception:
+        return 1200
+
+
+def _top_up_descriptions(jobs: List["NormalizedJob"], *, junior_only: bool, relax: bool, us_remote_only: bool, recent_days: int) -> None:
+    """Fetch additional description snippets per provider up to each provider's cap.
+    Only fetch for jobs likely to pass basic filters to conserve requests.
+    Mutates `jobs` by setting `description_snippet`.
+    """
+    # Precompute timeout and max chars
+    timeout = _desc_timeout()
+    max_chars = _desc_max_chars()
+
+    # Group jobs by provider and count existing snippets
+    by_provider: Dict[str, List["NormalizedJob"]] = {}
+    with_snip_counts: Dict[str, int] = {}
+
+    for j in jobs:
+        pk = (j.source or "").lower()
+        if not pk:
+            continue
+        by_provider.setdefault(pk, []).append(j)
+        if (j.description_snippet or "").strip():
+            with_snip_counts[pk] = with_snip_counts.get(pk, 0) + 1
+
+    # Build fetch plan: for each provider, compute deficit vs cap and choose candidates
+    plan: List["NormalizedJob"] = []
+    for pk, lst in by_provider.items():
+        cap = _cap_for_provider(pk)
+        have = with_snip_counts.get(pk, 0)
+        deficit = max(cap - have, 0)
+        if deficit <= 0:
+            continue
+        # Choose candidates without snippets that likely pass basic filters
+        candidates = []
+        for j in lst:
+            if (j.description_snippet or "").strip():
+                continue
+            # Apply light filters before investing in fetch
+            if not _matches_basic(j, junior_only=junior_only, relax=relax, us_remote_only=False):
+                continue
+            if us_remote_only and not rules_looks_remote_us(j.location, getattr(j, "description_snippet", None)):
+                continue
+            if recent_days:
+                pa = getattr(j, "posted_at", None)
+                if pa is not None and not is_recent(pa, days=recent_days):
+                    continue
+            candidates.append(j)
+            if len(candidates) >= deficit:
+                break
+        plan.extend(candidates)
+
+    if not plan:
+        return
+
+    # Concurrently fetch pages and attach snippets
+    def _fetch_and_trim(u: str) -> str:
+        try:
+            r = requests.get(u, timeout=timeout, headers={"User-Agent": "Mozilla/5.0"})
+            r.raise_for_status()
+            txt = BeautifulSoup(r.text, "html.parser").get_text(" ", strip=True)
+            return txt[:max_chars]
+        except Exception:
+            return ""
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=12) as ex:
+        futs = {ex.submit(_fetch_and_trim, j.url): j for j in plan if getattr(j, "url", None)}
+        for fut in concurrent.futures.as_completed(futs):
+            j = futs[fut]
+            try:
+                snippet = fut.result()
+            except Exception:
+                snippet = ""
+            if snippet:
+                try:
+                    # Mutate the Pydantic model / object
+                    setattr(j, "description_snippet", snippet)
+                except Exception:
+                    pass
+
 JUNIOR_TITLE = re.compile(
     r"\b(junior|new\s*grad|entry\s*level|entry-level|software\s*engineer\s*i\b|associate\b)\b",
     re.IGNORECASE,
@@ -356,6 +477,26 @@ def main():
             except Exception as e:
                 print(f"Error fetching jobs: {e}")
 
+    # Provider distribution before snippet top-up (after fetch)
+    if not args.no_summary:
+        prov_counts: Dict[str, int] = {}
+        for j in all_jobs:
+            pk = (j.source or "").lower()
+            if pk:
+                prov_counts[pk] = prov_counts.get(pk, 0) + 1
+        if prov_counts:
+            parts = [f"{k}={v}" for k, v in sorted(prov_counts.items())]
+            print("Providers (raw fetch): " + ", ".join(parts))
+
+    # Per-provider quota: top up descriptions so non-Greenhouse providers get coverage
+    _top_up_descriptions(
+        all_jobs,
+        junior_only=args.junior_only,
+        relax=args.relax,
+        us_remote_only=args.us_remote_only,
+        recent_days=args.recent_days,
+    )
+
     # --- Description snippet diagnostics ---
     if not args.no_summary:
         total_with_snippet = sum(1 for j in all_jobs if (j.description_snippet or "").strip())
@@ -364,7 +505,9 @@ def main():
             if (j.description_snippet or "").strip():
                 by_source[j.source] = by_source.get(j.source, 0) + 1
         if by_source:
-            parts = [f"{k}={v}" for k, v in sorted(by_source.items())]
+            parts = []
+            for k, v in sorted(by_source.items()):
+                parts.append(f"{k}={v} (cap={_cap_for_provider(k)})")
             print(f"Descriptions: with_snippet={total_with_snippet}/{len(all_jobs)} by_source: " + ", ".join(parts))
         else:
             print("Descriptions: with_snippet=0/{len(all_jobs)}")
@@ -483,6 +626,16 @@ def main():
     unique = dedupe(filtered)
 
     if not args.no_summary:
+        # Providers after basic filters (pre-skills)
+        prov_after_basic: Dict[str, int] = {}
+        for _, j in scored:
+            pk = (j.source or "").lower()
+            if pk:
+                prov_after_basic[pk] = prov_after_basic.get(pk, 0) + 1
+        if prov_after_basic:
+            parts = [f"{k}={v}" for k, v in sorted(prov_after_basic.items())]
+            print("Providers (after basic filters): " + ", ".join(parts))
+
         print(f"Summary: fetched={len(all_jobs)} kept={len(filtered)} unique={len(unique)}")
         if skills_any or skills_all:
             print(f"Skills filters: any={skills_any or '[]'} all={skills_all or '[]'} hard={bool(args.skills_hard)}")
