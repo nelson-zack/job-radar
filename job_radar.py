@@ -249,6 +249,10 @@ def main():
     parser.add_argument("--desc-timeout", type=float, default=None, help="Seconds timeout per description fetch (overrides RADAR_DESC_TIMEOUT)")
     parser.add_argument("--desc-max-chars", type=int, default=None, help="Max characters to keep in description snippet (overrides RADAR_DESC_MAX_CHARS)")
 
+    # Profiles (preset flags)
+    parser.add_argument("--profile", choices=["apply-now", "research"], default=None,
+                        help="Preset of sensible flags: 'apply-now' -> US remote, 14 days, junior-only, relax, min-score 1; 'research' -> 30 days, no min-score")
+
     # Skills filters
     parser.add_argument("--skills-any", type=str, default="", help="Comma-separated list; keep if ANY term appears in title or description")
     parser.add_argument("--skills-all", type=str, default="", help="Comma-separated list; keep only if ALL terms appear in title or description")
@@ -262,8 +266,27 @@ def main():
                         help="Drop roles with skill_score below this value (applies after scoring; default 0)")
     parser.add_argument("--csv-out", type=str, default="output/jobs.csv",
                         help="Path to write a CSV export of the kept results (default: output/jobs.csv)")
+    parser.add_argument("--csv-columns", type=str, default="",
+                        help="Comma-separated CSV columns to write and order. Default includes rank, company, title, location, source, provider, company_token, level, posted_at, posted_days_ago, skill_score, company_priority, url")
 
     args = parser.parse_args()
+
+    # Apply profile defaults (user flags still override if explicitly set)
+    if args.profile == "apply-now":
+        if not args.us_remote_only:
+            args.us_remote_only = True
+        if args.recent_days == 0:
+            args.recent_days = 14
+        if not args.junior_only:
+            args.junior_only = True
+        if not args.relax:
+            args.relax = True
+        if args.min_score == 0:
+            args.min_score = 1
+    elif args.profile == "research":
+        if args.recent_days == 0:
+            args.recent_days = 30
+        # leave other flags as-is to allow custom exploration
 
     # Apply CLI overrides for provider snippet fetching (providers read env vars)
     if args.desc_cap is not None:
@@ -298,6 +321,15 @@ def main():
             pr = c.get("priority")
             if pr is not None:
                 priority_by_company[name.lower()] = str(pr)
+
+    # Map company name -> token for output convenience (e.g., board token)
+    token_by_company: Dict[str, str] = {}
+    for c in companies:
+        name = (c.get("company") or "").strip()
+        if name:
+            tk = c.get("token")
+            if tk:
+                token_by_company[name.lower()] = str(tk)
 
     tasks = []
     for company in companies:
@@ -467,6 +499,8 @@ def main():
             if args.min_score > 0:
                 print(f"Min-score filter: dropped={dropped_by_min} (threshold={args.min_score})")
             print(f"CSV will be written to: {args.csv_out}")
+            if args.profile:
+                print(f"Profile: {args.profile}")
 
     os.makedirs("output", exist_ok=True)
     payload = []
@@ -495,6 +529,13 @@ def main():
         else:
             obj["company_priority"] = None
 
+        # Attach provider (same as source) and company_token if available
+        obj["provider"] = obj.get("source")
+        if comp_name:
+            obj["company_token"] = token_by_company.get(comp_name)
+        else:
+            obj["company_token"] = None
+
         # Compute posted_days_ago from posted_at if available
         pa = obj.get("posted_at")
         days_ago = None
@@ -520,33 +561,30 @@ def main():
 
     # --- CSV export ---
     csv_path = args.csv_out
-    fieldnames = [
-        "rank", "company", "title", "location", "source", "level",
+    # Determine CSV columns (allow overrides)
+    default_cols = [
+        "rank", "company", "title", "location", "source", "provider", "company_token", "level",
         "posted_at", "posted_days_ago", "skill_score", "company_priority", "url",
     ]
+    if args.csv_columns:
+        fieldnames = [c.strip() for c in args.csv_columns.split(",") if c.strip()]
+    else:
+        fieldnames = default_cols
+
     with open(csv_path, "w", encoding="utf-8", newline="") as fcsv:
         writer = csv.DictWriter(fcsv, fieldnames=fieldnames)
         writer.writeheader()
         for row in payload:
-            # Ensure posted_at is a string for CSV
-            pa = row.get("posted_at")
-            if isinstance(pa, datetime):
-                row_pa = pa.isoformat()
-            else:
-                row_pa = str(pa) if pa is not None else ""
-            writer.writerow({
-                "rank": row.get("rank", ""),
-                "company": row.get("company", ""),
-                "title": row.get("title", ""),
-                "location": row.get("location", ""),
-                "source": row.get("source", ""),
-                "level": row.get("level", ""),
-                "posted_at": row_pa,
-                "posted_days_ago": row.get("posted_days_ago", ""),
-                "skill_score": row.get("skill_score", 0),
-                "company_priority": row.get("company_priority", ""),
-                "url": row.get("url", ""),
-            })
+            # Copy row to a mutable map and ensure posted_at string formatting if requested
+            val_map = dict(row)
+            pa_val = row.get("posted_at")
+            if isinstance(pa_val, datetime):
+                val_map["posted_at"] = pa_val.isoformat()
+            elif pa_val is None:
+                val_map["posted_at"] = ""
+            # Build output row in requested column order
+            row_out = {col: val_map.get(col, "") for col in fieldnames}
+            writer.writerow(row_out)
 
 if __name__ == "__main__":
     main()

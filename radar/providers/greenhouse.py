@@ -7,7 +7,9 @@ from bs4 import BeautifulSoup
 from radar.core.normalize import NormalizedJob, normalize_title, normalize_company, canonical_location, infer_level
 
 # Description fetching caps (can be overridden via environment variables)
-DESC_CAP = int(os.getenv("RADAR_DESC_CAP", "30"))           # max descriptions to fetch per provider
+# Per-provider cap: prefer RADAR_DESC_CAP_GREENHOUSE, else fallback to RADAR_DESC_CAP
+_DESC_CAP_ENV = os.getenv("RADAR_DESC_CAP_GREENHOUSE") or os.getenv("RADAR_DESC_CAP") or "30"
+DESC_CAP = int(_DESC_CAP_ENV)
 DESC_TIMEOUT = float(os.getenv("RADAR_DESC_TIMEOUT", "8"))  # seconds per HTTP request
 DESC_MAX_CHARS = int(os.getenv("RADAR_DESC_MAX_CHARS", "1200"))
 

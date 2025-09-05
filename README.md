@@ -16,6 +16,9 @@ What this does
 - **US-remote filtering**: `--us-remote-only` ensures listings are explicitly Remote (US). Enhanced detection in both location and description fields.
 - **Diagnostics**: Summary output shows counts, with-date/recent diagnostics, description snippet counts, and skills filter matches/top results.
 - **Output**: JSON outputs use ISO8601 for datetime fields to ensure compatibility.
+- **Profiles**: Use `--profile apply-now` or `--profile research` to quickly apply sensible defaults for daily runs.
+- **Per-provider description caps**: Environment variables `RADAR_DESC_CAP_GREENHOUSE`, `RADAR_DESC_CAP_LEVER`, and `RADAR_DESC_CAP_WORKDAY` override the global `RADAR_DESC_CAP`.
+- **CSV customization**: `--csv-columns` lets you choose which fields to export and in what order. New fields include `provider`, `company_token`, `company_priority`, `posted_days_ago`, `skill_score`, and `rank`.
 
 Project layout
 
@@ -86,6 +89,7 @@ Tuning the filters
   - By default, skills are used for ranking only. Add `--skills-hard` to drop jobs without matches.
 
 - **Default skills config**:
+
   - If you don’t pass `--skills-any` or `--skills-all`, the tool will attempt to load defaults from a JSON file.
   - Search order:
     1. `--skills-defaults /path/to/file.json` (explicit path)
@@ -109,6 +113,30 @@ Tuning the filters
     }
     ```
   - On load, a message will print showing which defaults were applied.
+
+- **Profiles**:
+
+  - `--profile apply-now`: US remote only, last 14 days, junior-only with relaxed mode, min-score 1.
+  - `--profile research`: Last 30 days, looser filters for exploration.
+  - You can still override any defaults with explicit flags.
+
+- **Per-provider description caps**:
+
+  - By default, description fetching is capped globally with `RADAR_DESC_CAP`.
+  - Override per provider with:
+    - `RADAR_DESC_CAP_GREENHOUSE`
+    - `RADAR_DESC_CAP_LEVER`
+    - `RADAR_DESC_CAP_WORKDAY`
+
+- **CSV customization**:
+  - Use `--csv-columns` to specify which columns to include and their order.
+  - Default columns:
+    `rank, company, title, location, source, provider, company_token, level, posted_at, posted_days_ago, skill_score, company_priority, url`
+  - Customize per run, e.g.:
+    ```bash
+    python job_radar.py companies.json --profile apply-now \
+      --csv-columns rank,company,title,provider,company_token,posted_days_ago,skill_score,url
+    ```
 
 Notes and tips
 
