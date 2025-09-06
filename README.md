@@ -8,24 +8,26 @@ What this does
 
 ## Current Features
 
-- **Provider normalization**: Modular connectors for Greenhouse, Lever, and Workday with consistent schema.
+- **Provider normalization**: Modular connectors for Greenhouse, Lever, Workday, Ashby, and Workable. Note: Ashby and Workable are wired but may require further adjustments or more company tokens to yield results consistently.
 - **Recency filtering**: `--recent-days N` keeps only roles posted within the last N days. Add `--require-date` to enforce strictness.
 - **Description snippets**: Fetches up to a capped number of job pages per provider to extract a plain-text snippet, enabling smarter junior detection.
 - **Junior-friendly filtering**: `--junior-only` with optional `--relax` mode checks both title and description.
 - **Skills filters**: `--skills-any` and `--skills-all` check against title+description. By default these act as soft scoring (ranking results). Add `--skills-hard` to enforce as hard gates.
 - **US-remote filtering**: `--us-remote-only` ensures listings are explicitly Remote (US). Enhanced detection in both location and description fields.
 - **Diagnostics**: Summary output shows counts, with-date/recent diagnostics, description snippet counts, and skills filter matches/top results.
-- **Output**: JSON outputs use ISO8601 for datetime fields to ensure compatibility.
+- **Output**: JSON outputs use ISO8601 for datetime fields to ensure compatibility. CSV export includes skill scoring and ranking.
+
 - **Profiles**: Use `--profile apply-now` or `--profile research` to quickly apply sensible defaults for daily runs.
-- **Per-provider description caps**: Environment variables `RADAR_DESC_CAP_GREENHOUSE`, `RADAR_DESC_CAP_LEVER`, and `RADAR_DESC_CAP_WORKDAY` override the global `RADAR_DESC_CAP`.
+- **Per-provider description caps**: Environment variables `RADAR_DESC_CAP_GREENHOUSE`, `RADAR_DESC_CAP_LEVER`, `RADAR_DESC_CAP_WORKDAY`, `RADAR_DESC_CAP_ASHBY`, and `RADAR_DESC_CAP_WORKABLE` override the global `RADAR_DESC_CAP`.
 - **CSV customization**: `--csv-columns` lets you choose which fields to export and in what order. New fields include `provider`, `company_token`, `company_priority`, `posted_days_ago`, `skill_score`, and `rank`.
 
 Project layout
 
 - job_radar.py - CLI that orchestrates fetching, filtering, and printing matches.
-- providers.py - Connectors for Greenhouse, Lever, Ashby, and Workday.
+- radar/providers/ - Modular connectors (Greenhouse, Lever, Workday, Ashby, Workable).
 - companies.json - Curated list of remote-friendly companies with ATS info.
 - requirements.txt - Python dependencies.
+- scripts/detect_ats.sh - Helper script to detect ATS and suggest companies.json entries.
 
 Step-by-step setup
 
@@ -65,6 +67,9 @@ Step-by-step setup
      DIRECTV: host directv.wd1.myworkdayjobs.com, path External
      The script will call the JSON endpoint at
      https://{host}/wday/cxs/{host}/{path}/jobs
+
+   - For Ashby, the token is from jobs.ashbyhq.com/org/<token>.
+   - For Workable, the token is the subdomain or path on apply.workable.com/<token>/.
 
 7. Run it daily:
    macOS/Linux: use cron or launchd
@@ -127,6 +132,8 @@ Tuning the filters
     - `RADAR_DESC_CAP_GREENHOUSE`
     - `RADAR_DESC_CAP_LEVER`
     - `RADAR_DESC_CAP_WORKDAY`
+    - `RADAR_DESC_CAP_ASHBY`
+    - `RADAR_DESC_CAP_WORKABLE`
 
 - **CSV customization**:
   - Use `--csv-columns` to specify which columns to include and their order.
@@ -144,271 +151,59 @@ Notes and tips
 - Workday endpoints sometimes rate-limit. If you add many Workday companies, consider spacing runs or adding sleep.
 - If you want Google Sheets output or Slack/email alerts, I can provide an add-on module.
 
+## Known Limitations
+
+- Ashby and Workable connectors are implemented and wired, but currently most results come from Greenhouse. These providers may require more accurate tokens or further adjustments to yield consistent job listings.
+- Some ATS boards use heavy JavaScript or dynamic rendering, which may not be fully supported with the current plain-requests approach.
+- Workday endpoints are sometimes inconsistent or rate-limited, which can affect reliability for certain companies.
+
 ## Roadmap
 
 ### Phase 0: Baseline Setup & Version Control
 
-**What to build**
+- Establish a clean, maintainable codebase.
+- Curate a reliable initial company list.
+- Set up version control and documentation.
 
-- Upload the project to a version control system (e.g., GitHub).
-- Refine and prune the `companies.json` list to a high-confidence batch of ~50–100 companies.
-- Remove inactive or low-yield companies.
-- Prioritize companies with regular junior hiring, US-Remote eligibility, and clear ATS structure.
+### Phase 1: Provider Normalization & Filtering Accuracy
 
-**Why it matters**
+- Implement modular connectors for multiple ATS providers.
+- Improve filtering logic accuracy.
+- Ensure consistent schema across providers.
 
-- Establishes a clean, maintainable codebase.
-- Ensures the input data is relevant and reliable.
-- Provides a foundation for iterative improvements.
+### Phase 2: Filtering (junior, skills, recency, US remote)
 
-**Deliverables**
+- Enhance junior-friendly filters.
+- Add skills-based ranking and gating.
+- Implement recency and US-remote filters.
 
-- GitHub repository with initial commit.
-- Curated `companies.json` file.
-- Documentation for setup and usage.
+### Phase 3: Persistence + Minimal API
 
-**Example outcome**
+- Add caching and data persistence.
+- Provide a minimal API for job queries.
 
-- A stable starting point with a manageable and relevant company list, enabling predictable scan results.
+### Phase 4: Exports & Integrations (CSV, Google Sheets, Slack/email)
 
----
+- Support CSV exports with skill scoring.
+- Add integrations for Google Sheets and notifications.
 
-### Phase 1: Filtering Accuracy & Clarity
+### Phase 5: Scheduling + Containerization
 
-**What to build**
+- Enable scheduled runs via cron or similar.
+- Containerize the application for easier deployment.
 
-- ✅ Added filtering summary at the end of each run (total jobs scanned, filtered out by rule, etc.).
-- Improve false positive blocking (e.g., vague "Engineer" titles or misfit specialties).
-- Refine US-remote detection with flexible matching and description fallback.
-- ✅ Added recency, description snippets, and skills filters.
+### Phase 6: Performance & Resilience
 
-**Why it matters**
+- Optimize runtime and resource usage.
+- Improve error handling and retries.
 
-- Improves confidence in results.
-- Provides transparency about filtering decisions.
-- Reduces noise and irrelevant matches.
+### Phase 7: Dashboard (Optional)
 
-**Deliverables**
+- Develop a web dashboard for monitoring scans and results.
 
-- Filtering summary output.
-- Enhanced filtering logic.
-- Better location and remote work detection.
+### Phase 8: Tests & CI
 
-**Example outcome**
+- Add unit and integration tests.
+- Set up continuous integration pipelines.
 
-- Clear reports showing how many jobs were found and filtered, with fewer irrelevant listings.
-
----
-
-### Phase 2: Performance Optimization
-
-**What to build**
-
-- Optimize runtime by reducing slowdowns from HTML fetching and job parsing.
-- Implement early exits, caching, and parallelization where possible.
-
-**Why it matters**
-
-- Speeds up scans, enabling more frequent or larger runs.
-- Improves user experience with faster feedback.
-
-**Deliverables**
-
-- Refactored code with caching and concurrency.
-- Benchmarks showing improved runtime.
-
-**Example outcome**
-
-- Scan times reduced from minutes to seconds for typical company lists.
-
----
-
-### Phase 3: Expanded Provider Support
-
-**What to build**
-
-- Add support for the Remotive API.
-- Add Teamtailor API integration.
-- Add Greenhouse Job Board API Search (broad query mode).
-
-**Why it matters**
-
-- Increases coverage of job postings.
-- Captures more remote junior roles from diverse sources.
-
-**Deliverables**
-
-- New provider modules for Remotive, Teamtailor, and enhanced Greenhouse.
-- Updated documentation and tests.
-
-**Example outcome**
-
-- More comprehensive job listings from multiple ATS platforms.
-
----
-
-### Phase 4: Output Enhancements
-
-**What to build**
-
-- Ensure clean TXT and CSV output in `/output` folder.
-- Add optional Google Sheets export using `gspread` or Sheets API.
-
-**Why it matters**
-
-- Makes results easier to analyze, share, and archive.
-- Supports integration with other tools and workflows.
-
-**Deliverables**
-
-- Export scripts for TXT, CSV, and Google Sheets.
-- Configuration options for output formats.
-
-**Example outcome**
-
-- Users can easily open results in spreadsheets or automate reporting.
-
----
-
-### Phase 5: Automation & Scheduling
-
-**What to build**
-
-- Add cron job (Mac/Linux) or Task Scheduler (Windows) setup instructions.
-- Optional webhook/Slack/email summary alerts.
-- Store previous run hashes to avoid duplicate alerts.
-
-**Why it matters**
-
-- Enables hands-off, regular scanning.
-- Provides timely notifications about new matches.
-- Prevents alert fatigue with deduplication.
-
-**Deliverables**
-
-- Automation scripts and documentation.
-- Notification integration.
-- State persistence for alerting.
-
-**Example outcome**
-
-- Daily scans with automatic alerts sent only when new jobs appear.
-
----
-
-### Phase 6: Dev Experience & Testing
-
-**What to build**
-
-- Add unit tests for filtering logic.
-- Add `test_data/` folder with sample ATS listings.
-- Add `--dev-mode` to run a small subset of companies for quick tests.
-
-**Why it matters**
-
-- Improves code quality and reliability.
-- Facilitates contributions and debugging.
-- Speeds up development cycles.
-
-**Deliverables**
-
-- Test suite with coverage reports.
-- Sample test data.
-- Development mode flag.
-
-**Example outcome**
-
-- Confident code changes with minimal regressions.
-
----
-
-### Phase 7: User-Specific Filtering
-
-**What to build**
-
-- Add optional filters based on tech stack, job type, or other user preferences.
-- Allow configuration via command-line flags or config files.
-
-**Why it matters**
-
-- Tailors job matches to individual user needs.
-- Reduces irrelevant listings further.
-
-**Deliverables**
-
-- Extended filtering options.
-- User documentation.
-
-**Example outcome**
-
-- Users receive job matches aligned with their skills and interests.
-
----
-
-### Phase 8: Improved Error Handling & Logging
-
-**What to build**
-
-- Enhance error reporting for failed company fetches.
-- Implement retry logic for rate-limited endpoints.
-- Provide detailed logs with configurable verbosity.
-
-**Why it matters**
-
-- Improves robustness and user troubleshooting.
-- Helps identify and fix issues quickly.
-
-**Deliverables**
-
-- Robust logging system.
-- Retry and backoff mechanisms.
-- User guidance on error interpretation.
-
-**Example outcome**
-
-- Fewer scan interruptions and clearer diagnostics.
-
----
-
-### Phase 9: Community & Collaboration Features
-
-**What to build**
-
-- Add support for community-contributed company entries.
-- Implement a web dashboard for monitoring scans and results.
-- Enable sharing of filtered job lists.
-
-**Why it matters**
-
-- Builds a user community around the tool.
-- Enhances usability and engagement.
-- Facilitates collaboration and sharing.
-
-**Deliverables**
-
-- Contribution guidelines.
-- Web interface prototype.
-- Sharing mechanisms.
-
-**Example outcome**
-
-- Active user base contributing companies and sharing job leads.
-
----
-
-## Focus Order
-
-If time or resources are limited, prioritize development in this order:
-
-1. Baseline Setup & Version Control (Phase 0)
-2. Filtering Accuracy & Clarity (Phase 1)
-3. Performance Optimization (Phase 2)
-4. Expanded Provider Support (Phase 3)
-5. Output Enhancements (Phase 4)
-6. Automation & Scheduling (Phase 5)
-7. Dev Experience & Testing (Phase 6)
-8. User-Specific Filtering (Phase 7)
-9. Improved Error Handling & Logging (Phase 8)
-10. Community & Collaboration Features (Phase 9)
-
-This sequence builds a solid foundation first, improves core functionality and performance, then expands coverage and usability, and finally adds advanced features and community support.
+Note: Ashby and Workable are implemented but currently Greenhouse provides the bulk of results.
