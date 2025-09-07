@@ -8,14 +8,14 @@ What this does
 
 ## Current Features
 
-- **Provider normalization**: Modular connectors for Greenhouse, Lever, Workday, Ashby, and Workable. Note: Ashby and Workable are wired but may require further adjustments or more company tokens to yield results consistently.
+- **Provider normalization**: Modular connectors for Greenhouse, Lever, Workday, Ashby, and Workable. Note: Ashby and Workable are wired but experimental and may require further adjustments or more company tokens to yield results consistently.
 - **Recency filtering**: `--recent-days N` keeps only roles posted within the last N days. Add `--require-date` to enforce strictness.
 - **Description snippets**: Fetches up to a capped number of job pages per provider to extract a plain-text snippet, enabling smarter junior detection.
 - **Junior-friendly filtering**: `--junior-only` with optional `--relax` mode checks both title and description.
 - **Skills filters**: `--skills-any` and `--skills-all` check against title+description. By default these act as soft scoring (ranking results). Add `--skills-hard` to enforce as hard gates.
 - **US-remote filtering**: `--us-remote-only` ensures listings are explicitly Remote (US). Enhanced detection in both location and description fields.
 - **Diagnostics**: Summary output shows counts, with-date/recent diagnostics, description snippet counts, and skills filter matches/top results.
-- **Output**: JSON outputs use ISO8601 for datetime fields to ensure compatibility. CSV export includes skill scoring and ranking.
+- **Output**: JSON outputs use ISO8601 for datetime fields to ensure compatibility. CSV export includes skill scoring, ranking, and customizable columns (--csv-columns).
 
 - **Profiles**: Use `--profile apply-now` or `--profile research` to quickly apply sensible defaults for daily runs.
 - **Per-provider description caps**: Environment variables `RADAR_DESC_CAP_GREENHOUSE`, `RADAR_DESC_CAP_LEVER`, `RADAR_DESC_CAP_WORKDAY`, `RADAR_DESC_CAP_ASHBY`, and `RADAR_DESC_CAP_WORKABLE` override the global `RADAR_DESC_CAP`.
@@ -28,6 +28,7 @@ Project layout
 - companies.json - Curated list of remote-friendly companies with ATS info.
 - requirements.txt - Python dependencies.
 - scripts/detect_ats.sh - Helper script to detect ATS and suggest companies.json entries.
+- config/default_skills.json - Default skills configuration used if no skills flags are provided.
 
 Step-by-step setup
 
@@ -156,26 +157,29 @@ Notes and tips
 - Ashby and Workable connectors are implemented and wired, but currently most results come from Greenhouse. These providers may require more accurate tokens or further adjustments to yield consistent job listings.
 - Some ATS boards use heavy JavaScript or dynamic rendering, which may not be fully supported with the current plain-requests approach.
 - Workday endpoints are sometimes inconsistent or rate-limited, which can affect reliability for certain companies.
+- Some Workable tenants only render job postings client-side with JavaScript. These may not be supported with the current plain-requests approach.
 
 ## Roadmap
 
-### Phase 0: Baseline Setup & Version Control
+### **Phase 0: Baseline Setup & Version Control**
 
 - Establish a clean, maintainable codebase.
 - Curate a reliable initial company list.
 - Set up version control and documentation.
 
-### Phase 1: Provider Normalization & Filtering Accuracy
+### **Phase 1: Provider Normalization & Filtering Accuracy**
 
 - Implement modular connectors for multiple ATS providers.
 - Improve filtering logic accuracy.
 - Ensure consistent schema across providers.
 
-### Phase 2: Filtering (junior, skills, recency, US remote)
+### **Phase 2: Filtering (junior, skills, recency, US remote)**
 
 - Enhance junior-friendly filters.
 - Add skills-based ranking and gating.
 - Implement recency and US-remote filters.
+
+_Next milestone: Phase 3 (Persistence + Minimal API) will introduce a Postgres schema and FastAPI service to persist jobs and serve results for both CLI and web UI._
 
 ### Phase 3: Persistence + Minimal API
 

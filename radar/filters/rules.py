@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 # --- Engineering title heuristics (broadened, with false-positive guards) ---
 CORE_SWE_HINTS = re.compile(
-    r"\b(software|full[- ]?stack|fullstack|front[- ]?end|frontend|back[- ]?end|backend|platform|web|mobile|ios|android|data|ml|machine\s*learning|devops|sre|site\s*reliability|security|infrastructure)\b",
+    r"\b(software|full[- ]?stack|fullstack|front[- ]?end|frontend|back[- ]?end|backend|platform|web|mobile|ios|android|data|ml|machine\s*learning|devops|swe|sre|site\s*reliability|security|infrastructure)\b",
     re.I,
 )
 GENERIC_ENGINEER = re.compile(r"\b(engineer|developer)\b", re.I)

@@ -15,7 +15,6 @@ import csv
 from typing import List, Dict
 from pathlib import Path
 import concurrent.futures
-# NEW: use modular Radar package
 from radar.providers import REGISTRY as PROVIDER_REGISTRY
 from radar.core.normalize import NormalizedJob
 from radar.core.dedupe import deduplicate_jobs as dedupe_normalized
@@ -25,7 +24,7 @@ from radar.filters.rules import (
     looks_remote_us as rules_looks_remote_us,
     is_recent,
 )
-from utils import load_companies
+from radar.config import load_companies
 import os
 import requests
 from bs4 import BeautifulSoup
@@ -36,6 +35,7 @@ _PROVIDER_CAP_ENV = {
     "lever": "RADAR_DESC_CAP_LEVER",
     "workday": "RADAR_DESC_CAP_WORKDAY",
     "ashby": "RADAR_DESC_CAP_ASHBY",
+    "workable": "RADAR_DESC_CAP_WORKABLE",
 }
 
 _DEF_CAP_ENV = "RADAR_DESC_CAP"
