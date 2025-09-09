@@ -1,7 +1,11 @@
 .venv
+.env
 __pycache__/
 output/
 *.log
 *.pyc
 .DS_Store
 test_ashby.json
+
+# Local SQLite fallback
+radar.db
