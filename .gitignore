@@ -4,3 +4,4 @@ output/
 *.log
 *.pyc
 .DS_Store
+test_ashby.json

@@ -1,17 +1,36 @@
 Remote Junior SWE Radar - Quick Start
 
+**Current Version:** 0.2.0 (Phase 1 complete)
+
 What this does
 
 - Pulls job postings directly from company applicant tracking systems (ATS) instead of noisy job boards.
 - Filters for junior-friendly titles and remote United States eligibility.
 - Prints direct apply links so you avoid closed or generic career pages.
 
+## Current Features
+
+- **Provider normalization**: Modular connectors for Greenhouse, Lever, Workday, Ashby, and Workable. Note: Ashby and Workable are wired but experimental and may require further adjustments or more company tokens to yield results consistently.
+- **Recency filtering**: `--recent-days N` keeps only roles posted within the last N days. Add `--require-date` to enforce strictness.
+- **Description snippets**: Fetches up to a capped number of job pages per provider to extract a plain-text snippet, enabling smarter junior detection.
+- **Junior-friendly filtering**: `--junior-only` with optional `--relax` mode checks both title and description.
+- **Skills filters**: `--skills-any` and `--skills-all` check against title+description. By default these act as soft scoring (ranking results). Add `--skills-hard` to enforce as hard gates.
+- **US-remote filtering**: `--us-remote-only` ensures listings are explicitly Remote (US). Enhanced detection in both location and description fields.
+- **Diagnostics**: Summary output shows counts, with-date/recent diagnostics, description snippet counts, and skills filter matches/top results.
+- **Output**: JSON outputs use ISO8601 for datetime fields to ensure compatibility. CSV export includes skill scoring, ranking, and customizable columns (--csv-columns).
+
+- **Profiles**: Use `--profile apply-now` or `--profile research` to quickly apply sensible defaults for daily runs.
+- **Per-provider description caps**: Environment variables `RADAR_DESC_CAP_GREENHOUSE`, `RADAR_DESC_CAP_LEVER`, `RADAR_DESC_CAP_WORKDAY`, `RADAR_DESC_CAP_ASHBY`, and `RADAR_DESC_CAP_WORKABLE` override the global `RADAR_DESC_CAP`.
+- **CSV customization**: `--csv-columns` lets you choose which fields to export and in what order. New fields include `provider`, `company_token`, `company_priority`, `posted_days_ago`, `skill_score`, and `rank`.
+
 Project layout
 
 - job_radar.py - CLI that orchestrates fetching, filtering, and printing matches.
-- providers.py - Connectors for Greenhouse, Lever, Ashby, and Workday.
+- radar/providers/ - Modular connectors (Greenhouse, Lever, Workday, Ashby, Workable).
 - companies.json - Curated list of remote-friendly companies with ATS info.
 - requirements.txt - Python dependencies.
+- scripts/detect_ats.sh - Helper script to detect ATS and suggest companies.json entries.
+- config/default_skills.json - Default skills configuration used if no skills flags are provided.
 
 Step-by-step setup
 
@@ -32,7 +51,7 @@ Step-by-step setup
 
    # Relaxed junior mode:
 
-   python job_radar.py companies.json --junior-only --relax-junior
+   python job_radar.py companies.json --junior-only --relax
 
 5. Review the output:
 
@@ -52,6 +71,9 @@ Step-by-step setup
      The script will call the JSON endpoint at
      https://{host}/wday/cxs/{host}/{path}/jobs
 
+   - For Ashby, the token is from jobs.ashbyhq.com/org/<token>.
+   - For Workable, the token is the subdomain or path on apply.workable.com/<token>/.
+
 7. Run it daily:
    macOS/Linux: use cron or launchd
    Windows: use Task Scheduler
@@ -61,11 +83,70 @@ Step-by-step setup
 Tuning the filters
 
 - **Strict junior mode** (`--junior-only`): Accepts only titles with explicit junior signals — "junior", "new grad", "entry level", "software engineer i", or "associate" — and which clearly match engineering roles like Software Engineer/Developer (front end, back end, full‑stack, platform, web, mobile, data, ML, DevOps).
-- **Relaxed junior mode** (`--junior-only --relax-junior`): Also allows roles without explicit junior in the title if the description signals early‑career intent (e.g., “new grad,” “early career,” or ≤3 years experience). Senior/staff/lead titles and non‑engineering roles are still excluded.
+- **Relaxed junior mode** (`--junior-only --relax`): Also allows roles without explicit junior in the title if the description signals early‑career intent (e.g., “new grad,” “early career,” or ≤3 years experience). Senior/staff/lead titles and non‑engineering roles are still excluded.
 - Senior, staff, principal, lead, manager, and other seniority titles are excluded in all modes.
 - Non‑engineering titles (marketing, sales, account, operations, finance, legal, recruiting, design, architect, consultant, support, etc.) are excluded.
 - US‑remote detection is location‑first: requires “Remote” + “United States” in the location, or if location is empty, requires both terms in the job page. Use `--us-remote-only` and `--exclude-hybrid` to strictly enforce.
 - Use `--no-misfit-block` to include Security/Networking/Rust roles that are blocked by default.
+
+- **Recency filtering** (`--recent-days N`): Keep only jobs posted in the last N days (default 0 = disabled). Use `--require-date` to drop jobs with no date.
+- **Skills filters**:
+
+  - `--skills-any "python,react,fastapi"` keeps jobs that mention any of the terms in the title or snippet.
+  - `--skills-all "python,react"` keeps jobs that mention all listed terms.
+  - By default, skills are used for ranking only. Add `--skills-hard` to drop jobs without matches.
+
+- **Default skills config**:
+
+  - If you don’t pass `--skills-any` or `--skills-all`, the tool will attempt to load defaults from a JSON file.
+  - Search order:
+    1. `--skills-defaults /path/to/file.json` (explicit path)
+    2. `$RADAR_DEFAULT_SKILLS` environment variable (path)
+    3. `config/default_skills.json` (repo default)
+  - JSON format:
+    ```json
+    {
+      "any": [
+        "python",
+        "react",
+        "typescript",
+        "node",
+        "postgres",
+        "sql",
+        "django",
+        "fastapi",
+        "aws"
+      ],
+      "all": []
+    }
+    ```
+  - On load, a message will print showing which defaults were applied.
+
+- **Profiles**:
+
+  - `--profile apply-now`: US remote only, last 14 days, junior-only with relaxed mode, min-score 1.
+  - `--profile research`: Last 30 days, looser filters for exploration.
+  - You can still override any defaults with explicit flags.
+
+- **Per-provider description caps**:
+
+  - By default, description fetching is capped globally with `RADAR_DESC_CAP`.
+  - Override per provider with:
+    - `RADAR_DESC_CAP_GREENHOUSE`
+    - `RADAR_DESC_CAP_LEVER`
+    - `RADAR_DESC_CAP_WORKDAY`
+    - `RADAR_DESC_CAP_ASHBY`
+    - `RADAR_DESC_CAP_WORKABLE`
+
+- **CSV customization**:
+  - Use `--csv-columns` to specify which columns to include and their order.
+  - Default columns:
+    `rank, company, title, location, source, provider, company_token, level, posted_at, posted_days_ago, skill_score, company_priority, url`
+  - Customize per run, e.g.:
+    ```bash
+    python job_radar.py companies.json --profile apply-now \
+      --csv-columns rank,company,title,provider,company_token,posted_days_ago,skill_score,url
+    ```
 
 Notes and tips
 
@@ -73,63 +154,60 @@ Notes and tips
 - Workday endpoints sometimes rate-limit. If you add many Workday companies, consider spacing runs or adding sleep.
 - If you want Google Sheets output or Slack/email alerts, I can provide an add-on module.
 
+## Known Limitations
+
+- Ashby and Workable connectors are implemented and wired, but currently most results come from Greenhouse. These providers may require more accurate tokens or further adjustments to yield consistent job listings.
+- Some ATS boards use heavy JavaScript or dynamic rendering, which may not be fully supported with the current plain-requests approach.
+- Workday endpoints are sometimes inconsistent or rate-limited, which can affect reliability for certain companies.
+- Some Workable tenants only render job postings client-side with JavaScript. These may not be supported with the current plain-requests approach.
+
 ## Roadmap
 
-### ✅ Phase 1: Foundation & Version Control (Today)
+### **Phase 0: Baseline Setup & Version Control**
 
-**Goal:** Clean baseline, better inputs, and git-backed versioning
+- Establish a clean, maintainable codebase.
+- Curate a reliable initial company list.
+- Set up version control and documentation.
 
-- [ ] Upload to GitHub (public or private)
-- [ ] Polish `companies.json`  
-      ▸ Manually prune/test and refine to a high-confidence batch of ~50–100 companies  
-      ▸ Remove inactive or low-yield companies  
-      ▸ Prioritize those with regular junior hiring, US-Remote eligibility, and clear ATS structure
+### **Phase 1: Provider Normalization & Filtering Accuracy** ✅
 
----
+- Completed: modular connectors for multiple ATS providers, improved filtering accuracy, consistent schema across providers.
 
-### 🔧 Phase 2: MVP Polish
+### **Phase 2: Filtering (junior, skills, recency, US remote)**
 
-**Goal:** Improve accuracy, clarity, and usefulness of current output
+- Enhance junior-friendly filters.
+- Add skills-based ranking and gating.
+- Implement recency and US-remote filters.
 
-- [ ] Add filtering summary at end of each run (total jobs scanned, filtered out by rule, etc.)
-- [ ] Improve false positive blocking (e.g., vague "Engineer" titles or misfit specialties)
-- [ ] Refine US-remote detection with flexible matching and description fallback
+_Next milestone: Phase 2 (Persistence + Minimal API) will introduce a Postgres schema and FastAPI service to persist jobs and serve results for both CLI and web UI._
 
----
+### Phase 3: Persistence + Minimal API
 
-### 📤 Phase 3: Output Enhancements
+- Add caching and data persistence.
+- Provide a minimal API for job queries.
 
-**Goal:** Make results easier to use, share, and analyze
+### Phase 4: Exports & Integrations (CSV, Google Sheets, Slack/email)
 
-- [ ] Ensure clean TXT and CSV output in `/output` folder
-- [ ] Optional Google Sheets export using `gspread` or Sheets API
+- Support CSV exports with skill scoring.
+- Add integrations for Google Sheets and notifications.
 
----
+### Phase 5: Scheduling + Containerization
 
-### 🌐 Phase 4: New Providers (Expand Coverage)
+- Enable scheduled runs via cron or similar.
+- Containerize the application for easier deployment.
 
-**Goal:** Fetch jobs from more sources with minimal extra parsing
+### Phase 6: Performance & Resilience
 
-- [ ] Add Teamtailor support
-- [ ] Add Remotive API
-- [ ] Add Greenhouse Job Board API Search (broad query mode)
+- Optimize runtime and resource usage.
+- Improve error handling and retries.
 
----
+### Phase 7: Dashboard (Optional)
 
-### ⚙️ Phase 5: Automation & Scheduling
+- Develop a web dashboard for monitoring scans and results.
 
-**Goal:** Make it self-running and self-updating
+### Phase 8: Tests & CI
 
-- [ ] Add cron job (Mac/Linux) or Task Scheduler (Windows)
-- [ ] Optional webhook/Slack/email summary alerts
-- [ ] Store previous run hashes to avoid duplicate alerts
+- Add unit and integration tests.
+- Set up continuous integration pipelines.
 
----
-
-### 🧪 Phase 6: Dev Experience + Testing
-
-**Goal:** Make the project easier to contribute to and test
-
-- [ ] Add unit tests for filtering logic
-- [ ] Add `test_data/` folder with sample ATS listings
-- [ ] Add `--dev-mode` to run a small subset of companies for quick tests
+Note: Ashby and Workable are implemented but currently Greenhouse provides the bulk of results.

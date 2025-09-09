@@ -1,0 +1,27 @@
+# Example rules file for Job Radar filters.
+# Copy this to config/rules.yaml and customize as needed.
+
+junior_only: true
+us_remote_only: true
+
+include_titles:
+  - 'software engineer'
+  - 'frontend'
+  - 'backend'
+  - 'full[- ]?stack'
+
+exclude_titles:
+  - 'senior'
+  - 'staff'
+  - 'principal'
+  - 'lead'
+  - 'manager'
+  - 'architect'
+
+include_keywords_any:
+  - 'junior'
+  - 'new grad'
+  - 'entry level'
+
+exclude_companies:
+  - 'ExampleCorp'

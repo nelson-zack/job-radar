@@ -29,7 +29,12 @@
     "token": "doist",
     "priority": "High"
   },
-  { "company": "Mux", "ats": "greenhouse", "token": "mux", "priority": "High" },
+  {
+    "company": "Mux",
+    "ats": "greenhouse",
+    "token": "mux",
+    "priority": "High"
+  },
   {
     "company": "Stream",
     "ats": "greenhouse",
@@ -102,8 +107,12 @@
     "token": "hotjar",
     "priority": "High"
   },
-  { "company": "Snyk", "ats": "lever", "token": "snyk", "priority": "High" },
-
+  {
+    "company": "Snyk",
+    "ats": "lever",
+    "token": "snyk",
+    "priority": "High"
+  },
   {
     "company": "CivicPlus",
     "ats": "lever",
@@ -386,7 +395,6 @@
     "token": "elastic",
     "priority": "Medium"
   },
-
   {
     "company": "DIRECTV",
     "ats": "workday",
@@ -436,17 +444,10 @@
     "path": "snowflakecareers",
     "priority": "Long-shot"
   },
-
   {
     "company": "SafetyWing",
     "ats": "greenhouse",
     "token": "safetywing",
-    "priority": "Medium"
-  },
-  {
-    "company": "Harvest",
-    "ats": "greenhouse",
-    "token": "harvest",
     "priority": "Medium"
   },
   {
@@ -456,15 +457,493 @@
     "priority": "Medium"
   },
   {
-    "company": "Buildkite",
+    "company": "Figma",
     "ats": "greenhouse",
-    "token": "buildkite",
+    "token": "figma",
     "priority": "High"
   },
   {
-    "company": "Linear App",
+    "company": "Notion",
     "ats": "greenhouse",
-    "token": "linearapp",
+    "token": "notion",
     "priority": "High"
+  },
+  {
+    "company": "Rippling",
+    "ats": "greenhouse",
+    "token": "rippling",
+    "priority": "Medium"
+  },
+  {
+    "company": "Ramp",
+    "ats": "greenhouse",
+    "token": "ramp",
+    "priority": "Medium"
+  },
+  {
+    "company": "Discord",
+    "ats": "greenhouse",
+    "token": "discord",
+    "priority": "High"
+  },
+  {
+    "company": "OpenAI",
+    "ats": "greenhouse",
+    "token": "openai",
+    "priority": "High"
+  },
+  {
+    "company": "Brex",
+    "ats": "greenhouse",
+    "token": "brex",
+    "priority": "Medium"
+  },
+  {
+    "company": "Canva",
+    "ats": "greenhouse",
+    "token": "canva",
+    "priority": "Medium"
+  },
+  {
+    "company": "Stripe",
+    "ats": "greenhouse",
+    "token": "stripe",
+    "priority": "High"
+  },
+  {
+    "company": "Dropbox",
+    "ats": "workday",
+    "host": "dropbox.wd1.myworkdayjobs.com",
+    "path": "DropboxExternal",
+    "priority": "High"
+  },
+  {
+    "company": "Airbnb",
+    "ats": "workday",
+    "host": "airbnb.wd1.myworkdayjobs.com",
+    "path": "Airbnb",
+    "priority": "High"
+  },
+  {
+    "company": "Coinbase",
+    "ats": "workday",
+    "host": "coinbase.wd1.myworkdayjobs.com",
+    "path": "Coinbase",
+    "priority": "Medium"
+  },
+  {
+    "company": "Datadog",
+    "ats": "workday",
+    "host": "datadoghq.wd5.myworkdayjobs.com",
+    "path": "Datadog",
+    "priority": "Medium"
+  },
+  {
+    "company": "Anthropic",
+    "ats": "greenhouse",
+    "token": "anthropic",
+    "priority": "High"
+  },
+  {
+    "company": "Perplexity AI",
+    "ats": "greenhouse",
+    "token": "perplexityai",
+    "priority": "High"
+  },
+  {
+    "company": "Vanta",
+    "ats": "ashby",
+    "token": "vanta",
+    "priority": "Medium"
+  },
+  {
+    "company": "Loom",
+    "ats": "ashby",
+    "token": "loom",
+    "priority": "Medium"
+  },
+  {
+    "company": "Retool",
+    "ats": "greenhouse",
+    "token": "retool",
+    "priority": "Medium"
+  },
+  {
+    "company": "Ramp",
+    "ats": "ashby",
+    "token": "ramp",
+    "priority": "Medium"
+  },
+  {
+    "company": "Replit",
+    "ats": "ashby",
+    "token": "replit",
+    "priority": "Medium"
+  },
+  {
+    "company": "Sierra",
+    "ats": "ashby",
+    "token": "sierra",
+    "priority": "Medium"
+  },
+  {
+    "company": "Pylon Labs",
+    "ats": "ashby",
+    "token": "pylon-labs",
+    "priority": "Medium"
+  },
+  {
+    "company": "Etched",
+    "ats": "ashby",
+    "token": "etched",
+    "priority": "Medium"
+  },
+  {
+    "company": "Gecko Robotics",
+    "ats": "ashby",
+    "token": "gecko-robotics",
+    "priority": "Medium"
+  },
+  {
+    "company": "Harvey",
+    "ats": "ashby",
+    "token": "harvey",
+    "priority": "Medium"
+  },
+  {
+    "company": "BRM AI",
+    "ats": "ashby",
+    "token": "brm.ai",
+    "priority": "Medium"
+  },
+  {
+    "company": "Silna Health",
+    "ats": "ashby",
+    "token": "silnahealth.com",
+    "priority": "Medium"
+  },
+  {
+    "company": "Hugging Face",
+    "ats": "workable",
+    "token": "huggingface",
+    "priority": "Medium"
+  },
+  {
+    "company": "SmartLogic",
+    "ats": "workable",
+    "token": "smartlogic",
+    "priority": "Medium"
+  },
+  {
+    "company": "Transifex",
+    "ats": "workable",
+    "token": "transifex",
+    "priority": "Medium"
+  },
+  {
+    "company": "Keeper Security",
+    "ats": "workable",
+    "token": "keepersecurity",
+    "priority": "Medium"
+  },
+  {
+    "company": "RouteSmart Technologies",
+    "ats": "workable",
+    "token": "routesmart-technologies-inc",
+    "priority": "Medium"
+  },
+  {
+    "company": "Fanvue",
+    "ats": "ashby",
+    "token": "fanvue.com",
+    "priority": "Medium"
+  },
+  {
+    "company": "Aquia",
+    "ats": "greenhouse",
+    "token": "aquia",
+    "priority": "Medium"
+  },
+  {
+    "company": "Cloudflare",
+    "ats": "greenhouse",
+    "token": "cloudflare",
+    "priority": "High"
+  },
+  {
+    "company": "Plaid",
+    "ats": "greenhouse",
+    "token": "plaid",
+    "priority": "High"
+  },
+  {
+    "company": "Robinhood",
+    "ats": "greenhouse",
+    "token": "robinhood",
+    "priority": "High"
+  },
+  {
+    "company": "Sourcegraph",
+    "ats": "greenhouse",
+    "token": "sourcegraph",
+    "priority": "High"
+  },
+  {
+    "company": "DigitalOcean",
+    "ats": "greenhouse",
+    "token": "digitalocean",
+    "priority": "Medium"
+  },
+  {
+    "company": "Fastly",
+    "ats": "greenhouse",
+    "token": "fastly",
+    "priority": "Medium"
+  },
+  {
+    "company": "HashiCorp",
+    "ats": "greenhouse",
+    "token": "hashicorp",
+    "priority": "High"
+  },
+  {
+    "company": "Airtable",
+    "ats": "greenhouse",
+    "token": "airtable",
+    "priority": "High"
+  },
+  {
+    "company": "Reddit",
+    "ats": "greenhouse",
+    "token": "reddit",
+    "priority": "High"
+  },
+  {
+    "company": "Databricks",
+    "ats": "greenhouse",
+    "token": "databricks",
+    "priority": "High"
+  },
+  {
+    "company": "CloudBees",
+    "ats": "greenhouse",
+    "token": "cloudbees",
+    "priority": "Medium"
+  },
+  {
+    "company": "Snyk (GH mirror)",
+    "ats": "greenhouse",
+    "token": "snyk",
+    "priority": "Medium"
+  },
+  {
+    "company": "PlanetScale",
+    "ats": "greenhouse",
+    "token": "planetscale",
+    "priority": "Medium"
+  },
+  {
+    "company": "Mux (GH mirror)",
+    "ats": "greenhouse",
+    "token": "muxinc",
+    "priority": "Medium"
+  },
+  {
+    "company": "Benchling",
+    "ats": "greenhouse",
+    "token": "benchling",
+    "priority": "Medium"
+  },
+  {
+    "company": "OpenGov",
+    "ats": "greenhouse",
+    "token": "opengov",
+    "priority": "Medium"
+  },
+  {
+    "company": "Mode",
+    "ats": "greenhouse",
+    "token": "mode",
+    "priority": "Medium"
+  },
+  {
+    "company": "Expensify",
+    "ats": "greenhouse",
+    "token": "expensify",
+    "priority": "Medium"
+  },
+  {
+    "company": "Protocol Labs",
+    "ats": "greenhouse",
+    "token": "protocol",
+    "priority": "Medium"
+  },
+  {
+    "company": "Clerk",
+    "ats": "greenhouse",
+    "token": "clerk",
+    "priority": "Medium"
+  },
+  {
+    "company": "1Password",
+    "ats": "greenhouse",
+    "token": "1password",
+    "priority": "High"
+  },
+  {
+    "company": "Bitwarden",
+    "ats": "greenhouse",
+    "token": "bitwarden",
+    "priority": "High"
+  },
+  {
+    "company": "Canonical",
+    "ats": "greenhouse",
+    "token": "canonical",
+    "priority": "High"
+  },
+  {
+    "company": "Cockroach Labs",
+    "ats": "greenhouse",
+    "token": "cockroach-labs",
+    "priority": "Medium"
+  },
+  {
+    "company": "Affirm",
+    "ats": "greenhouse",
+    "token": "affirm",
+    "priority": "Medium"
+  },
+  {
+    "company": "HubSpot",
+    "ats": "greenhouse",
+    "token": "hubspot",
+    "priority": "Medium"
+  },
+  {
+    "company": "Quora",
+    "ats": "greenhouse",
+    "token": "quora",
+    "priority": "Medium"
+  },
+  {
+    "company": "Palantir",
+    "ats": "greenhouse",
+    "token": "palantir",
+    "priority": "Long-shot"
+  },
+  {
+    "company": "Camunda",
+    "ats": "greenhouse",
+    "token": "camunda",
+    "priority": "Medium"
+  },
+  {
+    "company": "Mercury",
+    "ats": "greenhouse",
+    "token": "mercury",
+    "priority": "Medium"
+  },
+  {
+    "company": "Duolingo",
+    "ats": "greenhouse",
+    "token": "duolingo",
+    "priority": "High"
+  },
+  {
+    "company": "Contentful",
+    "ats": "greenhouse",
+    "token": "contentful",
+    "priority": "Medium"
+  },
+  {
+    "company": "Twilio",
+    "ats": "greenhouse",
+    "token": "twilio",
+    "priority": "Medium"
+  },
+  {
+    "company": "Samsara",
+    "ats": "greenhouse",
+    "token": "samsara",
+    "priority": "Medium"
+  },
+  {
+    "company": "Postscript (GH mirror)",
+    "ats": "greenhouse",
+    "token": "postscript",
+    "priority": "Medium"
+  },
+  {
+    "company": "Hightouch",
+    "ats": "greenhouse",
+    "token": "hightouch",
+    "priority": "Medium"
+  },
+  {
+    "company": "Anthropic (GH mirror)",
+    "ats": "greenhouse",
+    "token": "anthropic",
+    "priority": "High"
+  },
+  {
+    "company": "Netlify (mirror)",
+    "ats": "greenhouse",
+    "token": "netlify",
+    "priority": "Medium"
+  },
+  {
+    "company": "Coda (mirror)",
+    "ats": "greenhouse",
+    "token": "coda",
+    "priority": "Medium"
+  },
+  {
+    "company": "Temporal (mirror)",
+    "ats": "greenhouse",
+    "token": "temporal",
+    "priority": "Medium"
+  },
+  {
+    "company": "Intercom",
+    "ats": "greenhouse",
+    "token": "intercom",
+    "priority": "Medium"
+  },
+  {
+    "company": "Drata",
+    "ats": "greenhouse",
+    "token": "drata",
+    "priority": "Medium"
+  },
+  {
+    "company": "Semgrep",
+    "ats": "greenhouse",
+    "token": "semgrep",
+    "priority": "Medium"
+  },
+  {
+    "company": "Klaviyo",
+    "ats": "greenhouse",
+    "token": "klaviyo",
+    "priority": "Medium"
+  },
+  {
+    "company": "Roblox",
+    "ats": "greenhouse",
+    "token": "roblox",
+    "priority": "Medium"
+  },
+  {
+    "company": "Datadog (GH feed)",
+    "ats": "greenhouse",
+    "token": "datadog",
+    "priority": "Long-shot"
+  },
+  {
+    "company": "Rippling (GH feed)",
+    "ats": "greenhouse",
+    "token": "ripple",
+    "priority": "Long-shot"
   }
 ]

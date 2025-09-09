@@ -1,0 +1,17 @@
+{
+  "any": [
+    "python",
+    "react",
+    "typescript",
+    "javascript",
+    "node",
+    "postgres",
+    "sql",
+    "fastapi",
+    "api",
+    "restful api",
+    "rest api",
+    "aws"
+  ],
+  "all": []
+}
