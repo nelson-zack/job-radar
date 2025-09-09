@@ -1,5 +1,7 @@
 Remote Junior SWE Radar - Quick Start
 
+**Current Version:** 0.2.0 (Phase 1 complete)
+
 What this does
 
 - Pulls job postings directly from company applicant tracking systems (ATS) instead of noisy job boards.
@@ -167,11 +169,9 @@ Notes and tips
 - Curate a reliable initial company list.
 - Set up version control and documentation.
 
-### **Phase 1: Provider Normalization & Filtering Accuracy**
+### **Phase 1: Provider Normalization & Filtering Accuracy** ✅
 
-- Implement modular connectors for multiple ATS providers.
-- Improve filtering logic accuracy.
-- Ensure consistent schema across providers.
+- Completed: modular connectors for multiple ATS providers, improved filtering accuracy, consistent schema across providers.
 
 ### **Phase 2: Filtering (junior, skills, recency, US remote)**
 
@@ -179,7 +179,7 @@ Notes and tips
 - Add skills-based ranking and gating.
 - Implement recency and US-remote filters.
 
-_Next milestone: Phase 3 (Persistence + Minimal API) will introduce a Postgres schema and FastAPI service to persist jobs and serve results for both CLI and web UI._
+_Next milestone: Phase 2 (Persistence + Minimal API) will introduce a Postgres schema and FastAPI service to persist jobs and serve results for both CLI and web UI._
 
 ### Phase 3: Persistence + Minimal API
 
