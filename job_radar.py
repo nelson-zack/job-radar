@@ -1,6 +1,6 @@
 import argparse
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 # --- JSON helpers ---
 def _json_default(o):
@@ -41,6 +41,111 @@ _PROVIDER_CAP_ENV = {
 _DEF_CAP_ENV = "RADAR_DESC_CAP"
 _DEF_TIMEOUT_ENV = "RADAR_DESC_TIMEOUT"
 _DEF_MAXCHARS_ENV = "RADAR_DESC_MAX_CHARS"
+
+
+# Junior-focused snippet top-up: invest requests in roles that are likely junior/entry-level
+def _junior_top_up_descriptions(
+    jobs: List["NormalizedJob"],
+    *,
+    recent_days: int,
+    us_remote_only: bool,
+    relax: bool,
+) -> tuple[int, Dict[str, int]]:
+    """
+    Focused snippet fetch: invest requests in roles that are *likely* junior/entry-level,
+    so `is_junior_title_or_desc(..., relaxed=True)` has text to work with.
+    Returns: (total_fetched, per_provider_counts)
+    """
+    cap_env = os.getenv("RADAR_JUNIOR_TOPUP_CAP")
+    try:
+        global_cap = int(cap_env) if cap_env else 150
+    except Exception:
+        global_cap = 150
+
+    if global_cap <= 0:
+        return 0, {}
+
+    timeout = _desc_timeout()
+    max_chars = _desc_max_chars()
+
+    # Build candidate pool
+    candidates: List[NormalizedJob] = []
+    for j in jobs:
+        # skip if already has snippet or no URL
+        if (j.description_snippet or "").strip() or not getattr(j, "url", None):
+            continue
+
+        title = (j.title or "").strip()
+        if not title:
+            continue
+
+        # Must look vaguely engineering
+        if not looks_like_engineering(title):
+            continue
+
+        # Exclude obvious senior
+        if SENIOR_BLOCK.search(title):
+            continue
+
+        # If US-remote-only requested, ensure location + snippet hints (light gate)
+        if us_remote_only and not rules_looks_remote_us(getattr(j, "location", ""), getattr(j, "description_snippet", None)):
+            # No snippet yet means we only have location; if it's clearly non-US or non-remote, skip
+            loc = (getattr(j, "location", "") or "").lower()
+            if loc and ("remote" not in loc or ("united states" not in loc and "us" not in loc)):
+                continue
+
+        # Recent-days gate (only if date present; we won't fetch to discover date here)
+        if recent_days:
+            pa = getattr(j, "posted_at", None)
+            if pa is not None and not is_recent(pa, days=recent_days):
+                continue
+
+        candidates.append(j)
+
+    if not candidates:
+        return 0, {}
+
+    # Prioritize explicit junior title signals first
+    def _priority_key(job: "NormalizedJob") -> tuple[int, int]:
+        t = (job.title or "").lower()
+        explicit_junior = 1 if JUNIOR_TITLE.search(t) else 0
+        # Prefer shorter titles (often less specialized) as a weak tie-breaker
+        return (-explicit_junior, len(t))
+
+    candidates.sort(key=_priority_key)
+    plan = candidates[:global_cap]
+
+    def _fetch_and_trim(u: str) -> str:
+        try:
+            r = requests.get(u, timeout=timeout, headers={"User-Agent": "Mozilla/5.0 JobRadar/1.0"})
+            r.raise_for_status()
+            txt = BeautifulSoup(r.text, "html.parser").get_text(" ", strip=True)
+            return txt[:max_chars]
+        except Exception:
+            return ""
+
+    fetched_by_provider: Dict[str, int] = {}
+    fetched_total = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=12) as ex:
+        futs = {ex.submit(_fetch_and_trim, j.url): j for j in plan}
+        for fut in concurrent.futures.as_completed(futs):
+            j = futs[fut]
+            snippet = ""
+            try:
+                snippet = fut.result()
+            except Exception:
+                snippet = ""
+            if snippet:
+                try:
+                    setattr(j, "description_snippet", snippet)
+                    fetched_total += 1
+                    pk = (getattr(j, "source", "") or "").lower()
+                    if pk:
+                        fetched_by_provider[pk] = fetched_by_provider.get(pk, 0) + 1
+                except Exception:
+                    pass
+
+    return fetched_total, fetched_by_provider
 
 
 def _cap_for_provider(provider_key: str) -> int:
@@ -150,6 +255,121 @@ def _top_up_descriptions(jobs: List["NormalizedJob"], *, junior_only: bool, rela
                     setattr(j, "description_snippet", snippet)
                 except Exception:
                     pass
+
+#
+# --- Date backfill helpers ----------------------------------------------------
+_MONTHS = {
+    'jan': 1, 'january': 1,
+    'feb': 2, 'february': 2,
+    'mar': 3, 'march': 3,
+    'apr': 4, 'april': 4,
+    'may': 5,
+    'jun': 6, 'june': 6,
+    'jul': 7, 'july': 7,
+    'aug': 8, 'august': 8,
+    'sep': 9, 'sept': 9, 'september': 9,
+    'oct': 10, 'october': 10,
+    'nov': 11, 'november': 11,
+    'dec': 12, 'december': 12,
+}
+
+_ISO_DATE = re.compile(r"\b(20\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\b")
+_MON_DD_YYYY = re.compile(r"\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+([0-3]?\d)(?:,)?\s+(20\d{2})\b", re.I)
+_POSTED_X_DAYS = re.compile(r"posted\s+(about\s+)?(\d{1,2})\s+day(s)?\s+ago", re.I)
+_X_DAYS_AGO = re.compile(r"\b(\d{1,2})\s+day(s)?\s+ago\b", re.I)
+
+
+def _parse_posted_at_from_text(text: str) -> datetime | None:
+    """Best-effort: parse a posting date from visible page text.
+    Returns naive UTC datetime (no tz) on success, else None.
+    """
+    if not text:
+        return None
+    try:
+        # 1) ISO date first (YYYY-MM-DD)
+        m = _ISO_DATE.search(text)
+        if m:
+            y, mo, dd = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            return datetime(y, mo, dd)
+        # 2) Month DD, YYYY
+        m = _MON_DD_YYYY.search(text)
+        if m:
+            mon, dd, y = m.group(1), int(m.group(2)), int(m.group(3))
+            mon_key = mon.lower()
+            mo = _MONTHS.get(mon_key[:3], _MONTHS.get(mon_key, 0))
+            if mo:
+                return datetime(y, mo, dd)
+        # 3) "Posted X days ago" (or just "X days ago")
+        m = _POSTED_X_DAYS.search(text) or _X_DAYS_AGO.search(text)
+        if m:
+            days = int(m.group(2) if m.re is _POSTED_X_DAYS else m.group(1))
+            dt = datetime.now(timezone.utc) - timedelta(days=days)
+            return dt.replace(tzinfo=None)
+    except Exception:
+        pass
+    return None
+
+
+def _backfill_posted_at(jobs: List["NormalizedJob"], *, cap: int | None = None, quiet: bool = False) -> tuple[int, dict[str, int]]:
+    """Fetch pages for jobs missing posted_at and best-effort parse a date.
+    Uses existing description_snippet text when available to avoid extra HTTP.
+    Returns (total_backfilled, counts_by_provider).
+    Controlled by env RADAR_DATE_BACKFILL_CAP (default 120) if cap not provided.
+    """
+    try:
+        max_total = int(os.getenv("RADAR_DATE_BACKFILL_CAP", "120")) if cap is None else int(cap)
+    except Exception:
+        max_total = 120
+    if max_total <= 0:
+        return 0, {}
+
+    timeout = _desc_timeout()
+    counts: dict[str, int] = {}
+    targets: list[NormalizedJob] = []
+    for j in jobs:
+        if getattr(j, "posted_at", None) is None and getattr(j, "url", None):
+            targets.append(j)
+            if len(targets) >= max_total:
+                break
+
+    def _fetch_text_for(j: "NormalizedJob") -> str:
+        # Prefer already-fetched snippet text if present
+        snip = (getattr(j, "description_snippet", "") or "").strip()
+        if snip:
+            return snip
+        try:
+            r = requests.get(j.url, timeout=timeout, headers={"User-Agent": "Mozilla/5.0 JobRadar/1.0"})
+            r.raise_for_status()
+            return BeautifulSoup(r.text, "html.parser").get_text(" ", strip=True)
+        except Exception:
+            return ""
+
+    updated = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=12) as ex:
+        futs = {ex.submit(_fetch_text_for, j): j for j in targets}
+        for fut in concurrent.futures.as_completed(futs):
+            j = futs[fut]
+            try:
+                txt = fut.result()
+            except Exception:
+                txt = ""
+            if not txt:
+                continue
+            dt = _parse_posted_at_from_text(txt)
+            if dt is None:
+                continue
+            try:
+                setattr(j, "posted_at", dt)
+                updated += 1
+                pk = (getattr(j, "source", "") or "").lower()
+                if pk:
+                    counts[pk] = counts.get(pk, 0) + 1
+            except Exception:
+                pass
+
+    if not quiet and updated:
+        pass  # printing handled by caller
+    return updated, counts
 
 JUNIOR_TITLE = re.compile(
     r"\b(junior|new\s*grad|entry\s*level|entry-level|software\s*engineer\s*i\b|associate\b)\b",
@@ -389,8 +609,22 @@ def main():
                         help="Path to write a CSV export of the kept results (default: output/jobs.csv)")
     parser.add_argument("--csv-columns", type=str, default="",
                         help="Comma-separated CSV columns to write and order. Default includes rank, company, title, location, source, provider, company_token, level, posted_at, posted_days_ago, skill_score, company_priority, url")
+    parser.add_argument(
+        "--providers",
+        default="greenhouse",
+        help="Comma-separated provider list to enable (e.g., 'greenhouse,lever'). Use 'all' to enable everything. Default: greenhouse",
+    )
 
     args = parser.parse_args()
+
+    # Which providers are enabled for this run?
+    if args.providers and args.providers.strip().lower() in ("all", "*"):
+        enabled_providers = {k.lower() for k in PROVIDER_REGISTRY.keys()}
+    elif args.providers:
+        enabled_providers = {p.strip().lower() for p in args.providers.split(",") if p.strip()}
+    else:
+        # Fallback: enable all if nothing provided (shouldn't happen with our default)
+        enabled_providers = {k.lower() for k in PROVIDER_REGISTRY.keys()}
 
     # Apply profile defaults (user flags still override if explicitly set)
     if args.profile == "apply-now":
@@ -420,6 +654,7 @@ def main():
     # Show available providers in the registry (helps diagnose mismatches)
     if not args.no_summary:
         print("Available providers:", ", ".join(sorted(PROVIDER_REGISTRY.keys())) or "(none)")
+        print("Enabled providers:", ", ".join(sorted(enabled_providers)) or "(none)")
 
     companies_raw = load_companies(args.companies_file)
     if not isinstance(companies_raw, list):
@@ -454,9 +689,12 @@ def main():
 
     tasks = []
     for company in companies:
-        provider_key = company.get("provider")
+        provider_key = (company.get("provider") or "").lower()
         if not provider_key or provider_key not in PROVIDER_REGISTRY:
             print(f"⚠️ Skipping company '{company.get('company')}' due to missing or unknown provider: {provider_key}")
+            continue
+        if provider_key not in enabled_providers:
+            # Provider is known but not enabled for this run
             continue
 
         provider = PROVIDER_REGISTRY[provider_key]
@@ -488,6 +726,19 @@ def main():
             parts = [f"{k}={v}" for k, v in sorted(prov_counts.items())]
             print("Providers (raw fetch): " + ", ".join(parts))
 
+    # Junior-focused snippet top-up (global cap): give relaxed junior logic text to read
+    jr_fetched_total, jr_by_provider = _junior_top_up_descriptions(
+        all_jobs,
+        recent_days=args.recent_days,
+        us_remote_only=args.us_remote_only,
+        relax=args.relax,
+    )
+    if not args.no_summary:
+        if jr_fetched_total:
+            parts = ", ".join(f"{k}={v}" for k, v in sorted(jr_by_provider.items()))
+            print(f"Junior top-up: fetched_snippets={jr_fetched_total} by_source: {parts or '(none)'} (cap={os.getenv('RADAR_JUNIOR_TOPUP_CAP') or 150})")
+        else:
+            print("Junior top-up: fetched_snippets=0")
     # Per-provider quota: top up descriptions so non-Greenhouse providers get coverage
     _top_up_descriptions(
         all_jobs,
@@ -496,6 +747,15 @@ def main():
         us_remote_only=args.us_remote_only,
         recent_days=args.recent_days,
     )
+
+    # Date backfill (best-effort): populate missing posted_at from page text
+    backfilled_total, backfilled_by = _backfill_posted_at(all_jobs)
+    if not args.no_summary:
+        if backfilled_total:
+            parts = ", ".join(f"{k}={v}" for k, v in sorted(backfilled_by.items())) or "(none)"
+            print(f"Date backfill: updated={backfilled_total} by_source: {parts} (cap={os.getenv('RADAR_DATE_BACKFILL_CAP') or 120})")
+        else:
+            print("Date backfill: updated=0")
 
     # --- Description snippet diagnostics ---
     if not args.no_summary:
@@ -510,7 +770,7 @@ def main():
                 parts.append(f"{k}={v} (cap={_cap_for_provider(k)})")
             print(f"Descriptions: with_snippet={total_with_snippet}/{len(all_jobs)} by_source: " + ", ".join(parts))
         else:
-            print("Descriptions: with_snippet=0/{len(all_jobs)}")
+            print(f"Descriptions: with_snippet=0/{len(all_jobs)}")
 
     # Write raw jobs for inspection (helps tune filters)
     os.makedirs("output", exist_ok=True)
