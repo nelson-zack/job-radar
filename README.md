@@ -1,6 +1,6 @@
 Remote Junior SWE Radar - Quick Start
 
-**Current Version:** 0.2.0 (Phase 1 complete)
+**Current Version:** 0.4.0 (Phase 2 in progress)
 
 What this does
 
@@ -22,6 +22,10 @@ What this does
 - **Profiles**: Use `--profile apply-now` or `--profile research` to quickly apply sensible defaults for daily runs.
 - **Per-provider description caps**: Environment variables `RADAR_DESC_CAP_GREENHOUSE`, `RADAR_DESC_CAP_LEVER`, `RADAR_DESC_CAP_WORKDAY`, `RADAR_DESC_CAP_ASHBY`, and `RADAR_DESC_CAP_WORKABLE` override the global `RADAR_DESC_CAP`.
 - **CSV customization**: `--csv-columns` lets you choose which fields to export and in what order. New fields include `provider`, `company_token`, `company_priority`, `posted_days_ago`, `skill_score`, and `rank`.
+- **Persistence layer**: SQLAlchemy models (`Company`, `Job`, `JobSkill`, `CrawlRun`) with PostgreSQL backend. Postgres is the default backend (via Docker) but SQLite is supported for local dev.
+- **CRUD helpers**: `upsert_job` and `query_jobs` for interacting with the database.
+- **Database setup**: `scripts/init_db.py` initializes schema, `scripts/test_db.py` verifies connectivity.
+- **API skeleton**: FastAPI service (`radar/api/main.py`) exposes `/healthz`, `/jobs` (with filters and detail view), and `/companies` endpoints.
 
 Project layout
 
@@ -31,6 +35,10 @@ Project layout
 - requirements.txt - Python dependencies.
 - scripts/detect_ats.sh - Helper script to detect ATS and suggest companies.json entries.
 - config/default_skills.json - Default skills configuration used if no skills flags are provided.
+- radar/db/ – SQLAlchemy models, sessions, CRUD helpers
+- radar/api/ – FastAPI entrypoint + dependencies
+- scripts/init_db.py – Creates schema
+- scripts/test_db.py – Sanity check script
 
 Step-by-step setup
 
@@ -79,6 +87,12 @@ Step-by-step setup
    Windows: use Task Scheduler
    Example cron entry to run at 9:00 AM daily:
    0 9 \* \* \* /usr/bin/python3 /path/to/job_radar.py /path/to/companies.json --junior-only >> /path/to/radar.log 2>&1
+
+8. Database setup:
+   - Ensure Docker is installed
+   - Start Postgres container with docker run command shown earlier
+   - Create `.env` with DATABASE_URL=postgresql+psycopg://radar:radar@localhost:5432/radar
+   - Run `python scripts/init_db.py`
 
 Tuning the filters
 
@@ -148,6 +162,18 @@ Tuning the filters
       --csv-columns rank,company,title,provider,company_token,posted_days_ago,skill_score,url
     ```
 
+API usage
+
+Run the FastAPI service:
+uvicorn radar.api.main:app --reload
+
+Endpoints:
+
+- `GET /healthz` → service status
+- `GET /jobs` → supports filters (`limit`, `offset`, `days`, `level`, `remote`, `us_remote_only`, `skills_any`), returns paginated JSON
+- `GET /jobs/{id}` → detailed job with description+skills
+- `GET /companies` → companies with job counts
+
 Notes and tips
 
 - Some ATS pages use dynamic content. The provided connectors work for many companies, but not all. Errors for a company will be logged and the scan continues.
@@ -173,39 +199,35 @@ Notes and tips
 
 - Completed: modular connectors for multiple ATS providers, improved filtering accuracy, consistent schema across providers.
 
-### **Phase 2: Filtering (junior, skills, recency, US remote)**
-
-- Enhance junior-friendly filters.
-- Add skills-based ranking and gating.
-- Implement recency and US-remote filters.
-
-_Next milestone: Phase 2 (Persistence + Minimal API) will introduce a Postgres schema and FastAPI service to persist jobs and serve results for both CLI and web UI._
-
-### Phase 3: Persistence + Minimal API
+### **Phase 2: Persistence + Minimal API** ✅ (completed)
 
 - Add caching and data persistence.
 - Provide a minimal API for job queries.
 
-### Phase 4: Exports & Integrations (CSV, Google Sheets, Slack/email)
+### Phase 2.5: Curated GitHub repos integration for new‑grad SWE jobs (remote‑only extraction)
+
+- Integrate curated GitHub repositories to extract remote new-grad SWE job listings.
+
+### Phase 3: Exports & Integrations (CSV, Google Sheets, Slack/email)
 
 - Support CSV exports with skill scoring.
 - Add integrations for Google Sheets and notifications.
 
-### Phase 5: Scheduling + Containerization
+### Phase 4: Scheduling + Containerization
 
 - Enable scheduled runs via cron or similar.
 - Containerize the application for easier deployment.
 
-### Phase 6: Performance & Resilience
+### Phase 5: Performance & Resilience
 
 - Optimize runtime and resource usage.
 - Improve error handling and retries.
 
-### Phase 7: Dashboard (Optional)
+### Phase 6: Dashboard (Optional)
 
 - Develop a web dashboard for monitoring scans and results.
 
-### Phase 8: Tests & CI
+### Phase 7: Tests & CI
 
 - Add unit and integration tests.
 - Set up continuous integration pipelines.

@@ -28,6 +28,8 @@ from radar.config import load_companies
 import os
 import requests
 from bs4 import BeautifulSoup
+from radar.db.session import get_session  # Phase 2: persistence
+from radar.db.crud import upsert_job      # Phase 2: persistence
 
 # --- provider quota + description top-up helpers ---
 _PROVIDER_CAP_ENV = {
@@ -609,6 +611,9 @@ def main():
                         help="Path to write a CSV export of the kept results (default: output/jobs.csv)")
     parser.add_argument("--csv-columns", type=str, default="",
                         help="Comma-separated CSV columns to write and order. Default includes rank, company, title, location, source, provider, company_token, level, posted_at, posted_days_ago, skill_score, company_priority, url")
+    # Persistence
+    parser.add_argument("--save", action="store_true",
+                        help="Persist kept jobs into the database (requires DATABASE_URL)")
     parser.add_argument(
         "--providers",
         default="greenhouse",
@@ -971,6 +976,122 @@ def main():
         payload.append(obj)
     with open("output/jobs.json", "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, default=_json_default)
+
+    # --- Optional: persist kept jobs to the database ---
+    if args.save:
+        try:
+            # Lazy imports to keep CLI fast when not saving
+            from urllib.parse import urlparse
+            from radar.db.session import get_session
+            from radar.db.crud import upsert_job
+
+            def _to_naive_utc(dt_val):
+                # Accept datetime or ISO string; return naive UTC datetime or None
+                if isinstance(dt_val, datetime):
+                    return dt_val if dt_val.tzinfo is None else dt_val.astimezone(timezone.utc).replace(tzinfo=None)
+                if isinstance(dt_val, str) and dt_val:
+                    try:
+                        dt = datetime.fromisoformat(dt_val.replace("Z", "+00:00"))
+                        return dt if dt.tzinfo is None else dt.astimezone(timezone.utc).replace(tzinfo=None)
+                    except Exception:
+                        return None
+                return None
+
+            def _pick_external_id(row: dict) -> str | None:
+                # Try common keys first; otherwise derive a stable-ish ID from the URL
+                for k in (
+                    "external_id",
+                    "id",
+                    "job_id",
+                    "greenhouse_id",
+                    "gh_id",
+                    "lever_id",
+                    "workday_id",
+                    "ashby_id",
+                    "workable_id",
+                ):
+                    v = row.get(k)
+                    if v is not None and str(v).strip():
+                        return str(v)
+                url = (row.get("url") or "").strip()
+                if not url:
+                    return None
+                try:
+                    path = urlparse(url).path.rstrip("/")
+                    tail = path.split("/")[-1]
+                    return tail or url  # last path segment or fallback to full URL
+                except Exception:
+                    return url
+
+            def _infer_is_remote(row: dict) -> bool:
+                loc = row.get("location") or ""
+                desc = row.get("description_snippet") or ""
+                try:
+                    return bool(rules_looks_remote_us(loc, desc))
+                except Exception:
+                    # Conservative fallback
+                    s = f"{loc} {desc}".lower()
+                    return "remote" in s and ("united states" in s or "usa" in s or "us" in s)
+
+            # Build a quick matcher from the run's skill lists (if provided/loaded)
+            terms_for_match = set()
+            try:
+                terms_for_match |= set(skills_any_set)
+                terms_for_match |= set(skills_all_set)
+            except Exception:
+                pass
+
+            def _matched_skills(row: dict) -> list[str]:
+                if not terms_for_match:
+                    return []
+                hay = f"{row.get('title','')} {row.get('description_snippet','')}".lower()
+                return sorted([t for t in terms_for_match if t in hay])
+
+            saved = 0
+            total = 0
+            errors = 0
+
+            with get_session() as session:
+                for row in payload:
+                    total += 1
+                    company_name = (row.get("company") or "").strip()
+                    provider = (row.get("provider") or row.get("source") or "").strip().lower()
+                    url = (row.get("url") or "").strip()
+                    title = (row.get("title") or "").strip()
+
+                    if not (company_name and provider and url and title):
+                        errors += 1
+                        continue
+
+                    job_data = {
+                        "provider": provider,
+                        "external_id": _pick_external_id(row),
+                        "url": url,
+                        "company": company_name,        # upsert_job accepts a plain name; will create/lookup Company
+                        "title": title,
+                        "location": row.get("location"),
+                        "is_remote": _infer_is_remote(row),
+                        "level": (row.get("level") or "unknown").lower(),
+                        "posted_at": _to_naive_utc(row.get("posted_at")),
+                        "description": row.get("description_snippet") or row.get("description") or None,
+                        "skills": _matched_skills(row),
+                        # optional extras our model supports
+                        "function": row.get("function"),
+                        "seniority_score": row.get("seniority_score"),
+                    }
+
+                    try:
+                        if upsert_job(job_data=job_data, session=session):
+                            saved += 1
+                    except Exception:
+                        errors += 1
+                        # Uncomment to debug persisting issues:
+                        # print(f"[persist] error for {company_name} / {title}: {e}")
+
+            print(f"Persisted {saved}/{total} jobs to the database." + (f" (errors={errors})" if errors else ""))
+
+        except Exception as e:
+            print(f"DB save skipped due to error: {e}")
 
     # --- CSV export ---
     csv_path = args.csv_out
