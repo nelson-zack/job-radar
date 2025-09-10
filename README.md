@@ -173,6 +173,14 @@ Endpoints:
 - `GET /jobs` → supports filters (`limit`, `offset`, `days`, `level`, `remote`, `us_remote_only`, `skills_any`), returns paginated JSON
 - `GET /jobs/{id}` → detailed job with description+skills
 - `GET /companies` → companies with job counts
+- `POST /ingest/curated` → fetch curated GitHub repos (new‑grad SWE jobs) and persist them. Requires admin token header.
+- `POST /scan/ats` → run ATS scan and persist results. Requires admin token header.
+
+### Authentication
+
+- Both `POST /ingest/curated` and `POST /scan/ats` endpoints require an admin token.
+- Pass it as `x-token: $RADAR_ADMIN_TOKEN` in the request header.
+- `RADAR_ADMIN_TOKEN` should be set in `.env` or exported before running the API.
 
 Notes and tips
 
@@ -204,7 +212,7 @@ Notes and tips
 - Add caching and data persistence.
 - Provide a minimal API for job queries.
 
-### Phase 2.5: Curated GitHub repos integration for new‑grad SWE jobs (remote‑only extraction)
+### Phase 2.5: Curated GitHub repos integration for new‑grad SWE jobs (remote‑only extraction) ✅ completed
 
 - Integrate curated GitHub repositories to extract remote new-grad SWE job listings.
 
