@@ -1,5 +1,3 @@
-
-
 """Shared SQLAlchemy session/engine setup for Job Radar.
 
 Usage patterns
@@ -17,6 +15,11 @@ RADAR_DATABASE_URL / DATABASE_URL:
 RADAR_DB_POOL_SIZE (int, default 5)
 RADAR_DB_MAX_OVERFLOW (int, default 10)
 RADAR_DB_ECHO ("1" to enable SQL echo)
+
+RADAR_DOTENV (path to .env, default ".env")
+    If `python-dotenv` is installed, this module will auto‑load environment
+    variables from this file on import. This helps keep CLI and API processes
+    pointed at the same database without extra flags.
 """
 from __future__ import annotations
 
@@ -27,6 +30,16 @@ from typing import Iterator
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
+
+# Optional: load environment variables from a .env file if available
+try:
+    from dotenv import load_dotenv  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    load_dotenv = None  # type: ignore
+
+if load_dotenv is not None:
+    # Allow override of the .env path via RADAR_DOTENV; default to project root .env
+    _ = load_dotenv(dotenv_path=os.getenv("RADAR_DOTENV", ".env"))
 
 
 # --- Declarative base for all ORM models ---
@@ -102,6 +115,14 @@ def get_session() -> Iterator[Session]:
         # Do not auto-commit; callers should commit explicitly
     finally:
         session.close()
+
+
+def current_engine_url() -> str:
+    """Return the effective SQLAlchemy URL for debugging/logging."""
+    try:
+        return str(ENGINE.url)
+    except Exception:
+        return "<unavailable>"
 
 
 def test_connection() -> bool:

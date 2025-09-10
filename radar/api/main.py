@@ -1,11 +1,218 @@
-from fastapi import FastAPI
+from __future__ import annotations
 
+from datetime import datetime, timedelta
+from typing import Literal, Optional, List
+
+from fastapi import FastAPI, Depends, Query, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from sqlalchemy import func, or_, and_
+from sqlalchemy import select, exists
+from sqlalchemy.orm import Session
+
+from radar.api.deps import db_session
+from radar.db.models import Job, Company, JobSkill
+
+
+# -------------------------
+# FastAPI setup
+# -------------------------
 app = FastAPI(title="Job Radar API", version="0.2.0")
 
-@app.get("/")
+# CORS (open for now; tighten before public deploy)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# -------------------------
+# Pydantic response models
+# -------------------------
+class JobOut(BaseModel):
+    id: int
+    company: Optional[str]
+    company_name: Optional[str]
+    title: str
+    level: str
+    is_remote: bool
+    posted_at: Optional[datetime]
+    url: str
+
+    class Config:
+        from_attributes = True  # pydantic v2
+
+
+class JobsResponse(BaseModel):
+    items: List[JobOut]
+    total: int
+    limit: int
+    offset: int
+
+
+class CompanyOut(BaseModel):
+    company: str
+    slug: str
+    jobs: int
+
+
+class JobDetailOut(JobOut):
+    description: Optional[str] = None
+    skills: List[str] = []
+
+
+# -------------------------
+# Routes
+# -------------------------
+@app.get("/", tags=["meta"])  # small friendly root
 async def root():
     return {"message": "Job Radar API is running"}
 
-@app.get("/jobs")
-async def get_jobs():
-    return [{"id": 1, "title": "Junior Software Engineer"}]
+
+@app.get("/healthz", tags=["meta"])  # k8s/Render probes
+async def healthz():
+    return {"status": "ok"}
+
+
+OrderBy = Literal["posted_at_desc", "posted_at_asc", "id_desc", "id_asc"]
+
+
+@app.get("/jobs", response_model=JobsResponse, tags=["data"])
+async def get_jobs(
+    limit: int = Query(25, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    level: Optional[str] = Query(None, description="Filter by inferred level: junior|mid|senior|unknown"),
+    remote: Optional[bool] = Query(None, description="is_remote flag"),
+    provider: Optional[str] = Query(None, description="Source provider (e.g., greenhouse)"),
+    company: Optional[str] = Query(None, description="Company slug"),
+    q: Optional[str] = Query(None, description="Substring match on title/company"),
+    days: Optional[int] = Query(None, description="Only include jobs posted within the last N days"),
+    order: OrderBy = Query("posted_at_desc"),
+    skills_any: Optional[str] = Query(None, description="Comma-separated list of skills; match any"),
+    us_remote_only: Optional[bool] = Query(None, description="If true, only remote jobs suitable for US"),
+    session: Session = Depends(db_session),
+):
+    """Query jobs with common filters & pagination.
+
+    NOTE: we only return a compact projection; detailed views can come later.
+    """
+    # Base query with join so we can filter/return company fields
+    query = session.query(Job).join(Company, Job.company_id == Company.id)
+
+    # Skills filter (match any) — use EXISTS to avoid join-duplication
+    if skills_any:
+        skills_list = [s.strip().lower() for s in skills_any.split(",") if s.strip()]
+        if skills_list:
+            subq = (
+                session.query(JobSkill.id)
+                .filter(JobSkill.job_id == Job.id)
+                .filter(func.lower(JobSkill.skill).in_(skills_list))
+            )
+            query = query.filter(subq.exists())
+
+    # US-remote helper: for now, treat as simply remote==True
+    if us_remote_only:
+        query = query.filter(Job.is_remote.is_(True))
+
+    if level:
+        query = query.filter(Job.level == level)
+    if remote is not None:
+        query = query.filter(Job.is_remote.is_(remote))
+    if provider:
+        query = query.filter(Job.provider == provider)
+    if company:
+        query = query.filter(Company.slug == company)
+    if days is not None and days > 0:
+        cutoff = datetime.utcnow() - timedelta(days=days)
+        query = query.filter(Job.posted_at != None).filter(Job.posted_at >= cutoff)  # noqa: E711
+    if q:
+        like = f"%{q}%"
+        query = query.filter(or_(Job.title.ilike(like), Company.name.ilike(like)))
+
+    # Total before pagination
+    total = query.count()
+
+    # Ordering
+    if order == "posted_at_desc":
+        query = query.order_by(Job.posted_at.desc().nullslast(), Job.id.desc())
+    elif order == "posted_at_asc":
+        query = query.order_by(Job.posted_at.asc().nullsfirst(), Job.id.asc())
+    elif order == "id_asc":
+        query = query.order_by(Job.id.asc())
+    else:  # id_desc
+        query = query.order_by(Job.id.desc())
+
+    rows: list[Job] = query.offset(offset).limit(limit).all()
+
+    items: list[JobOut] = [
+        JobOut(
+            id=j.id,
+            company=j.company.slug if j.company else None,
+            company_name=j.company.name if j.company else None,
+            title=j.title,
+            level=j.level,
+            is_remote=j.is_remote,
+            posted_at=j.posted_at,
+            url=j.url,
+        )
+        for j in rows
+    ]
+
+    return JobsResponse(items=items, total=total, limit=limit, offset=offset)
+
+
+@app.get("/companies", response_model=List[CompanyOut], tags=["data"])
+async def get_companies(session: Session = Depends(db_session)):
+    results = (
+        session.query(
+            Company.name.label("company"),
+            Company.slug.label("slug"),
+            func.count(Job.id).label("jobs"),
+        )
+        .join(Job, Job.company_id == Company.id)
+        .group_by(Company.id)
+        .order_by(func.count(Job.id).desc())
+        .all()
+    )
+    return [CompanyOut(company=company, slug=slug, jobs=jobs) for company, slug, jobs in results]
+
+
+@app.get("/jobs/{job_id}", response_model=JobDetailOut, tags=["data"])
+async def get_job_detail(job_id: int, session: Session = Depends(db_session)):
+    j: Job | None = (
+        session.query(Job)
+               .join(Company, Job.company_id == Company.id)
+               .filter(Job.id == job_id)
+               .first()
+    )
+    if not j:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Collect skills
+    skills = [row[0] for row in session.query(JobSkill.skill).filter(JobSkill.job_id == j.id).all()]
+
+    return JobDetailOut(
+        id=j.id,
+        company=j.company.slug if j.company else None,
+        company_name=j.company.name if j.company else None,
+        title=j.title,
+        level=j.level,
+        is_remote=j.is_remote,
+        posted_at=j.posted_at,
+        url=j.url,
+        description=j.description,
+        skills=skills,
+    )
+
+
+# Optional: tiny debug endpoint to sanity-check DB wiring (non-sensitive)
+@app.get("/debug/db", tags=["meta"])  # remove or protect in prod
+async def debug_db(session: Session = Depends(db_session)):
+    try:
+        session.execute(func.now())
+        return {"ok": True}
+    except Exception as e:  # pragma: no cover
+        return {"ok": False, "error": str(e)}

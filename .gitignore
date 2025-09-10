@@ -6,6 +6,7 @@ output/
 *.pyc
 .DS_Store
 test_ashby.json
+quick_companies.json
 
 # Local SQLite fallback
 radar.db
