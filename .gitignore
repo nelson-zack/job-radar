@@ -9,4 +9,5 @@ test_ashby.json
 quick_companies.json
 
 # Local SQLite fallback
-radar.db
+radar.dbscripts/test_github_curated.py
+scripts/ingest_github_curated.py
