@@ -1,6 +1,6 @@
 Remote Junior SWE Radar - Quick Start
 
-**Current Version:** 0.3.0 (Phase 2 in progress)
+**Current Version:** 0.4.0 (Phase 2 in progress)
 
 What this does
 
@@ -22,10 +22,10 @@ What this does
 - **Profiles**: Use `--profile apply-now` or `--profile research` to quickly apply sensible defaults for daily runs.
 - **Per-provider description caps**: Environment variables `RADAR_DESC_CAP_GREENHOUSE`, `RADAR_DESC_CAP_LEVER`, `RADAR_DESC_CAP_WORKDAY`, `RADAR_DESC_CAP_ASHBY`, and `RADAR_DESC_CAP_WORKABLE` override the global `RADAR_DESC_CAP`.
 - **CSV customization**: `--csv-columns` lets you choose which fields to export and in what order. New fields include `provider`, `company_token`, `company_priority`, `posted_days_ago`, `skill_score`, and `rank`.
-- **Persistence layer**: SQLAlchemy models (`Company`, `Job`, `JobSkill`, `CrawlRun`) with PostgreSQL backend.
+- **Persistence layer**: SQLAlchemy models (`Company`, `Job`, `JobSkill`, `CrawlRun`) with PostgreSQL backend. Postgres is the default backend (via Docker) but SQLite is supported for local dev.
 - **CRUD helpers**: `upsert_job` and `query_jobs` for interacting with the database.
 - **Database setup**: `scripts/init_db.py` initializes schema, `scripts/test_db.py` verifies connectivity.
-- **API skeleton**: FastAPI service (`radar/api/main.py`) exposes `/healthz` and `/jobs` endpoints.
+- **API skeleton**: FastAPI service (`radar/api/main.py`) exposes `/healthz`, `/jobs` (with filters and detail view), and `/companies` endpoints.
 
 Project layout
 
@@ -169,8 +169,10 @@ uvicorn radar.api.main:app --reload
 
 Endpoints:
 
-- GET /healthz → {"status": "ok"}
-- GET /jobs?limit=10 → fetches recent jobs from DB
+- `GET /healthz` → service status
+- `GET /jobs` → supports filters (`limit`, `offset`, `days`, `level`, `remote`, `us_remote_only`, `skills_any`), returns paginated JSON
+- `GET /jobs/{id}` → detailed job with description+skills
+- `GET /companies` → companies with job counts
 
 Notes and tips
 
@@ -197,10 +199,14 @@ Notes and tips
 
 - Completed: modular connectors for multiple ATS providers, improved filtering accuracy, consistent schema across providers.
 
-### **Phase 2: Persistence + Minimal API** ✅ (in progress)
+### **Phase 2: Persistence + Minimal API** ✅ (completed)
 
 - Add caching and data persistence.
 - Provide a minimal API for job queries.
+
+### Phase 2.5: Curated GitHub repos integration for new‑grad SWE jobs (remote‑only extraction)
+
+- Integrate curated GitHub repositories to extract remote new-grad SWE job listings.
 
 ### Phase 3: Exports & Integrations (CSV, Google Sheets, Slack/email)
 
