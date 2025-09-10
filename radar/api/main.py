@@ -2,13 +2,26 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from typing import Literal, Optional, List
+from typing import cast
 
-from fastapi import FastAPI, Depends, Query, HTTPException
+from fastapi import FastAPI, Depends, Query, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import func, or_, and_
 from sqlalchemy import select, exists
 from sqlalchemy.orm import Session
+import os
+import subprocess, sys
+from radar.providers.github_curated import fetch_curated_github_jobs
+from radar.db.crud import upsert_job
+from radar.db.session import get_session
+
+ADMIN_TOKEN = os.getenv("RADAR_ADMIN_TOKEN", "")
+
+def require_admin(x_token: str | None) -> None:
+    if not ADMIN_TOKEN or x_token != ADMIN_TOKEN:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
 
 from radar.api.deps import db_session
 from radar.db.models import Job, Company, JobSkill
@@ -206,6 +219,39 @@ async def get_job_detail(job_id: int, session: Session = Depends(db_session)):
         description=j.description,
         skills=skills,
     )
+
+
+@app.post("/ingest/curated", tags=["admin"])
+def ingest_curated(x_token: str | None = Header(default=None)):
+    require_admin(x_token)
+    rows = fetch_curated_github_jobs()
+    saved = 0
+    with get_session() as s:
+        session_obj: Session = cast(Session, s)
+        for r in rows:
+            upsert_job(job_data=r, session=session_obj)
+            saved += 1
+    return {"source": "github_curated", "fetched": len(rows), "saved": saved}
+
+
+@app.post("/scan/ats", tags=["admin"])
+def scan_ats(x_token: str | None = Header(default=None)):
+    require_admin(x_token)
+    # Run the existing CLI using the current Python interpreter so we stay in this venv.
+    script_path = os.path.join(os.getcwd(), "job_radar.py")
+    try:
+        proc = subprocess.run(
+            [sys.executable, script_path, "companies.json", "--profile", "apply-now", "--save"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        # Return only a tail of stdout to avoid huge payloads
+        tail = proc.stdout[-2000:]
+        return {"status": "ok", "stdout_tail": tail}
+    except subprocess.CalledProcessError as e:
+        err_tail = (e.stderr or "")[-1000:]
+        raise HTTPException(status_code=500, detail=f"job_radar failed: {err_tail}")
 
 
 # Optional: tiny debug endpoint to sanity-check DB wiring (non-sensitive)
