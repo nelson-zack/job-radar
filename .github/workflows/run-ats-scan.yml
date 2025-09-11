@@ -1,0 +1,48 @@
+name: Run ATS scan (manual)
+
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: "30 3 * * *"  # 03:30 UTC nightly (optional)
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ats-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      API_URL: https://job-radar.onrender.com
+      RADAR_ADMIN_TOKEN: ${{ secrets.RADAR_ADMIN_TOKEN }}
+    steps:
+      - name: Trigger /scan/ats
+        run: |
+          set -euo pipefail
+          echo "POST $API_URL/scan/ats"
+          # Hit API; fail if HTTP status >=400; save raw body
+          http_code=$(curl --silent --show-error \
+            --fail-with-body \
+            --max-time 1800 \
+            -X POST "$API_URL/scan/ats" \
+            -H "x-token: $RADAR_ADMIN_TOKEN" \
+            -H "Accept: application/json" \
+            -w "%{http_code}" \
+            -o response.json)
+          echo "HTTP $http_code"
+          # Pretty print if JSON; otherwise show raw
+          if command -v jq >/dev/null 2>&1; then
+            jq . < response.json || cat response.json
+          else
+            cat response.json
+          fi
+      - name: Upload response artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ats-scan-response
+          path: response.json
+          if-no-files-found: warn
