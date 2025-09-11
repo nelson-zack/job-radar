@@ -1,0 +1,47 @@
+name: Run ATS scan (manual, CLI)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Run ATS scan (persists to DB)
+        env:
+          # Add this secret in GitHub → Settings → Secrets and variables → Actions
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          echo "DATABASE_URL is set? $([ -n "${DATABASE_URL:-}" ] && echo yes || echo no)"
+          python job_radar.py companies.json --profile apply-now --save | tee response.txt
+
+      - name: Upload CLI output
+        uses: actions/upload-artifact@v4
+        with:
+          name: ats-cli-output
+          path: response.txt
