@@ -1,0 +1,25 @@
+name: Nightly curated ingest
+
+on:
+  schedule:
+    - cron: '20 3 * * *' # 03:20 UTC nightly (adjust as you like)
+  workflow_dispatch: # allow manual runs
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Hit /ingest/curated
+        env:
+          API_URL: https://job-radar.onrender.com
+          RADAR_ADMIN_TOKEN: ${{ secrets.RADAR_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          curl -sS -X POST "$API_URL/ingest/curated" \
+            -H "x-token: $RADAR_ADMIN_TOKEN" \
+            -H "Accept: application/json" \
+            | jq .
