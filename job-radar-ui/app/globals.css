@@ -1,26 +1,67 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+@import '../styles/theme.css';
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* base palette */
+  --bg: #0e1116; /* off‑black, not pure black */
+  --fg: #e6edf3; /* soft white */
+  --surface: #121821; /* card/table rows */
+  --surface-2: #0f151c; /* header bars */
+  --border: #1f2937; /* slate-700-ish lines */
+  --muted: #9aa4b2; /* subdued text */
+  --accent: #22d3ee; /* cyan accent */
+  --ring: rgba(34, 211, 238, 0.25);
 }
 
+/* Map variables into Tailwind v4 tokens */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Global base */
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Small utilities to keep JSX clean (optional) */
+.table-card {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.th {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface-2);
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.td {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border);
+}
+.link {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.link:hover {
+  opacity: 0.9;
 }
