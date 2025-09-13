@@ -1,73 +1,66 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { fetchJobs } from '@/lib/api';
+// app/page.tsx
 import JobTable from '@/components/JobTable';
+import FiltersBar from '@/components/FiltersBar';
+import Pagination from '@/components/Pagination';
+import { fetchJobs } from '@/lib/api';
+import type { JobsResponse } from '@/lib/types';
+import PageShell from '@/components/layout/PageShell';
 
-export default function Home() {
-  const [level, setLevel] = useState<string>('');
-  const [query, setQuery] = useState<string>(''); // skills_any
-  const [jobs, setJobs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+const PAGE_SIZE_DEFAULT = 25;
 
-  async function load() {
-    setLoading(true);
-    try {
-      const data = await fetchJobs({
-        limit: 25,
-        order: 'id_desc',
-        level: level || undefined,
-        skills_any: query || undefined
-      });
-      setJobs(data.items);
-    } finally {
-      setLoading(false);
-    }
-  }
+function toInt(v: string | string[] | undefined, d: number) {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : d;
+}
 
-  useEffect(() => {
-    load();
-  }, []);
+export default async function Home({
+  searchParams
+}: {
+  // In Next 15+, searchParams is a Promise in Server Components
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
+  const sp = await searchParams;
+
+  const level = sp.level ?? 'any';
+  const skills = sp.skills ?? '';
+  const page = toInt(sp.page, 0);
+  const limit = toInt(sp.limit, PAGE_SIZE_DEFAULT);
+  const offset = page * limit;
+
+  const data: JobsResponse = await fetchJobs({
+    level: level === 'any' ? undefined : level,
+    skills_any: skills,
+    limit,
+    offset,
+    order: 'id_desc'
+  });
+
+  const totalPages = Math.max(1, Math.ceil((data.total ?? 0) / limit));
+
+  const makeHref = (p: number) => {
+    const params = new URLSearchParams({
+      level,
+      skills,
+      page: String(p),
+      limit: String(limit)
+    });
+    return `/?${params.toString()}`;
+  };
 
   return (
-    <main className='max-w-5xl mx-auto p-6 space-y-4'>
-      <h1 className='text-2xl font-semibold'>Job Radar</h1>
+    <PageShell>
+      <h1 className='text-2xl font-bold'>Job Radar</h1>
 
-      <div className='flex flex-wrap gap-3 items-end'>
-        <div>
-          <label className='block text-xs font-medium mb-1'>Level</label>
-          <select
-            value={level}
-            onChange={(e) => setLevel(e.target.value)}
-            className='border rounded px-2 py-1'
-          >
-            <option value=''>Any</option>
-            <option value='junior'>Junior</option>
-            <option value='mid'>Mid</option>
-            <option value='senior'>Senior</option>
-          </select>
-        </div>
+      {/* Client component handles its own form submit/navigation */}
+      <FiltersBar initialLevel={level} initialSkills={skills} />
 
-        <div>
-          <label className='block text-xs font-medium mb-1'>Skills (any)</label>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder='python, react, sql'
-            className='border rounded px-2 py-1 w-64'
-          />
-        </div>
+      <JobTable jobs={data.items} />
 
-        <button
-          onClick={load}
-          disabled={loading}
-          className='bg-black text-white rounded px-3 py-1 disabled:opacity-50'
-        >
-          {loading ? 'Loading…' : 'Search'}
-        </button>
-      </div>
+      <Pagination page={page} totalPages={totalPages} makeHref={makeHref} />
 
-      <JobTable jobs={jobs} />
-    </main>
+      <p className='text-xs text-[var(--muted)]'>
+        Showing {Math.min(limit, data.items.length)} of {data.total}
+      </p>
+    </PageShell>
   );
 }

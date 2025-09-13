@@ -1,36 +1,47 @@
-import type { Job } from '@/lib/api';
+import type { Job } from '@/lib/types';
 
-export default function JobTable({ jobs }: { jobs: Job[] }) {
-  if (!jobs.length) return <p className='text-sm text-gray-500'>No results.</p>;
+type Props = { jobs: Job[] };
+
+export default function JobTable({ jobs }: Props) {
+  if (!jobs.length)
+    return <p className='text-sm text-[var(--muted)]'>No results.</p>;
 
   return (
     <div className='overflow-x-auto'>
-      <table className='min-w-full text-sm'>
+      <table className='table-card text-sm text-left'>
         <thead>
-          <tr className='text-left border-b'>
-            <th className='p-2'>Company</th>
-            <th className='p-2'>Title</th>
-            <th className='p-2'>Level</th>
-            <th className='p-2'>Remote</th>
-            <th className='p-2'>Posted</th>
-            <th className='p-2'></th>
+          <tr>
+            <th className='th'>Company</th>
+            <th className='th'>Title</th>
+            <th className='th'>Level</th>
+            <th className='th'>Remote</th>
+            <th className='th'>Posted</th>
+            <th className='th'></th>
           </tr>
         </thead>
         <tbody>
-          {jobs.map((j) => (
-            <tr key={j.id} className='border-b hover:bg-gray-50'>
-              <td className='p-2'>{j.company_name || j.company}</td>
-              <td className='p-2'>{j.title}</td>
-              <td className='p-2'>{j.level ?? '—'}</td>
-              <td className='p-2'>{j.is_remote ? '✅' : '—'}</td>
-              <td className='p-2'>
+          {jobs.map((j, i) => (
+            <tr
+              key={j.id}
+              className='hover:bg-[var(--surface-2)] transition-colors'
+            >
+              <td className='td whitespace-nowrap'>
+                {j.company_name || j.company}
+              </td>
+              <td className='td whitespace-nowrap'>{j.title}</td>
+              <td className='td whitespace-nowrap'>{j.level ?? '—'}</td>
+              <td className='td whitespace-nowrap'>
+                {j.is_remote ? '✅' : '—'}
+              </td>
+              <td className='td whitespace-nowrap'>
                 {j.posted_at ? new Date(j.posted_at).toLocaleDateString() : '—'}
               </td>
-              <td className='p-2'>
+              <td className='td whitespace-nowrap'>
                 <a
+                  className='link'
                   href={j.url}
                   target='_blank'
-                  className='text-indigo-600 underline'
+                  rel='noopener noreferrer'
                 >
                   Apply
                 </a>

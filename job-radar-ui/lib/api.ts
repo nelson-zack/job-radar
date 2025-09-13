@@ -1,3 +1,4 @@
+import { API_URL } from '@/utils/env';
 // lib/api.ts
 export type Job = {
   id: number;
@@ -20,12 +21,14 @@ export type JobsResponse = {
 export async function fetchJobs(
   params: Record<string, string | number | boolean | undefined> = {}
 ) {
-  const base = process.env.NEXT_PUBLIC_API_URL!;
   const qs = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => {
     if (v !== undefined && v !== null && v !== '') qs.set(k, String(v));
   });
-  const r = await fetch(`${base}/jobs?${qs.toString()}`, { cache: 'no-store' });
+
+  const url = `${API_URL}/jobs?${qs.toString()}`;
+
+  const r = await fetch(url, { cache: 'no-store', next: { revalidate: 0 } });
   if (!r.ok) throw new Error(`Failed to fetch jobs (${r.status})`);
   return r.json() as Promise<JobsResponse>;
 }

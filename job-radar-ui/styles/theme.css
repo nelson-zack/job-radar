@@ -1,0 +1,10 @@
+:root {
+  --bg: #0e1116;
+  --surface: #121821;
+  --surface-2: #0f151c;
+  --border: #1f2937;
+  --text: #e6edf3;
+  --muted: #9aa4b2;
+  --accent: #22d3ee; /* tweak later to match your exact portfolio cyan */
+  --ring: rgba(34, 211, 238, 0.25);
+}
