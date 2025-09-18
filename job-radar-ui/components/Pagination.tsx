@@ -11,33 +11,35 @@ export default function Pagination({ page, totalPages, makeHref }: Props) {
   const hasNext = page + 1 < totalPages;
 
   const linkBase =
-    'px-3 py-1.5 rounded border border-[var(--line)] text-sm hover:bg-[var(--surface-1)]';
+    'inline-flex items-center gap-1 rounded-full border border-[var(--border)]/60 bg-[var(--surface-3)]/70 px-3.5 py-1.75 text-sm font-semibold text-[var(--text)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]';
   const disabled = 'opacity-40 pointer-events-none';
 
   return (
     <nav
-      className='flex items-center justify-between mt-4'
+      className='mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'
       aria-label='Pagination'
     >
-      <a
-        href={hasPrev ? makeHref(prevPage) : '#'}
-        aria-disabled={!hasPrev}
-        className={`${linkBase} ${!hasPrev ? disabled : ''}`}
-      >
-        ← Prev
-      </a>
+      <div className='flex items-center gap-2'>
+        <a
+          href={hasPrev ? makeHref(prevPage) : '#'}
+          aria-disabled={!hasPrev}
+          className={`${linkBase} ${!hasPrev ? disabled : ''}`}
+        >
+          ← Prev
+        </a>
 
-      <span className='text-xs text-[var(--muted)]'>
+        <a
+          href={hasNext ? makeHref(nextPage) : '#'}
+          aria-disabled={!hasNext}
+          className={`${linkBase} ${!hasNext ? disabled : ''}`}
+        >
+          Next →
+        </a>
+      </div>
+
+      <span className='rounded-full border border-[var(--border)]/50 bg-[var(--surface-3)]/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)] shadow-[var(--shadow-sm)]'>
         Page {page + 1} of {Math.max(1, totalPages)}
       </span>
-
-      <a
-        href={hasNext ? makeHref(nextPage) : '#'}
-        aria-disabled={!hasNext}
-        className={`${linkBase} ${!hasNext ? disabled : ''}`}
-      >
-        Next →
-      </a>
     </nav>
   );
 }

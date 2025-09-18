@@ -29,6 +29,9 @@ export async function fetchJobs(
   const url = `${API_URL}/jobs?${qs.toString()}`;
 
   const r = await fetch(url, { cache: 'no-store', next: { revalidate: 0 } });
-  if (!r.ok) throw new Error(`Failed to fetch jobs (${r.status})`);
+  if (!r.ok) {
+    const body = await r.text().catch(() => '');
+    throw new Error(`Failed to fetch jobs (${r.status}): ${body}\nURL: ${url}`);
+  }
   return r.json() as Promise<JobsResponse>;
 }

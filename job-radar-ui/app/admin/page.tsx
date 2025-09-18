@@ -13,8 +13,10 @@ export default function AdminPage() {
       const r = await fetch('/api/ingest-curated', { method: 'POST' });
       const txt = await r.text();
       setOut(`${r.status}: ${txt}`);
-    } catch (e: any) {
-      setOut(`Error: ${e?.message ?? 'unknown'}`);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : typeof err === 'string' ? err : 'unknown';
+      setOut(`Error: ${message}`);
     }
   };
 

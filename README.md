@@ -1,243 +1,203 @@
-Remote Junior SWE Radar - Quick Start
+# Job Radar
 
-**Current Version:** 0.4.0 (Phase 2 in progress)
+**Current version:** 0.4.0 (Phase 3 kickoff)
 
-What this does
+> Surfaces remote-friendly early-career software roles by crawling applicant tracking systems (ATS), normalizing the data, and exposing the results via CLI, API, and a web dashboard.
 
-- Pulls job postings directly from company applicant tracking systems (ATS) instead of noisy job boards.
-- Filters for junior-friendly titles and remote United States eligibility.
-- Prints direct apply links so you avoid closed or generic career pages.
+## Contents
 
-## Current Features
+- [Overview](#overview)
+- [Architecture at a Glance](#architecture-at-a-glance)
+- [Progress Snapshot](#progress-snapshot)
+- [Roadmap](#roadmap)
+- [Quality & Engineering Practices](#quality--engineering-practices)
+- [Getting Started](#getting-started)
+- [Usage Reference](#usage-reference)
+- [Known Limitations](#known-limitations)
+- [Development Workflow](#development-workflow)
 
-- **Provider normalization**: Modular connectors for Greenhouse, Lever, Workday, Ashby, and Workable. Note: Ashby and Workable are wired but experimental and may require further adjustments or more company tokens to yield results consistently.
-- **Recency filtering**: `--recent-days N` keeps only roles posted within the last N days. Add `--require-date` to enforce strictness.
-- **Description snippets**: Fetches up to a capped number of job pages per provider to extract a plain-text snippet, enabling smarter junior detection.
-- **Junior-friendly filtering**: `--junior-only` with optional `--relax` mode checks both title and description.
-- **Skills filters**: `--skills-any` and `--skills-all` check against title+description. By default these act as soft scoring (ranking results). Add `--skills-hard` to enforce as hard gates.
-- **US-remote filtering**: `--us-remote-only` ensures listings are explicitly Remote (US). Enhanced detection in both location and description fields.
-- **Diagnostics**: Summary output shows counts, with-date/recent diagnostics, description snippet counts, and skills filter matches/top results.
-- **Output**: JSON outputs use ISO8601 for datetime fields to ensure compatibility. CSV export includes skill scoring, ranking, and customizable columns (--csv-columns).
+## Overview
 
-- **Profiles**: Use `--profile apply-now` or `--profile research` to quickly apply sensible defaults for daily runs.
-- **Per-provider description caps**: Environment variables `RADAR_DESC_CAP_GREENHOUSE`, `RADAR_DESC_CAP_LEVER`, `RADAR_DESC_CAP_WORKDAY`, `RADAR_DESC_CAP_ASHBY`, and `RADAR_DESC_CAP_WORKABLE` override the global `RADAR_DESC_CAP`.
-- **CSV customization**: `--csv-columns` lets you choose which fields to export and in what order. New fields include `provider`, `company_token`, `company_priority`, `posted_days_ago`, `skill_score`, and `rank`.
-- **Persistence layer**: SQLAlchemy models (`Company`, `Job`, `JobSkill`, `CrawlRun`) with PostgreSQL backend. Postgres is the default backend (via Docker) but SQLite is supported for local dev.
-- **CRUD helpers**: `upsert_job` and `query_jobs` for interacting with the database.
-- **Database setup**: `scripts/init_db.py` initializes schema, `scripts/test_db.py` verifies connectivity.
-- **API skeleton**: FastAPI service (`radar/api/main.py`) exposes `/healthz`, `/jobs` (with filters and detail view), and `/companies` endpoints.
+- Crawls Greenhouse, Lever, Workday, Ashby, Workable, and curated GitHub sources to build a deduplicated job feed.
+- Applies junior-friendly, remote-first filtering with skill scoring and recency controls to highlight actionable roles.
+- Delivers results through a Python CLI, FastAPI service, and a Next.js UI that supports filtering, pagination, and admin actions.
 
-Project layout
+## Architecture at a Glance
 
-- job_radar.py - CLI that orchestrates fetching, filtering, and printing matches.
-- radar/providers/ - Modular connectors (Greenhouse, Lever, Workday, Ashby, Workable).
-- companies.json - Curated list of remote-friendly companies with ATS info.
-- requirements.txt - Python dependencies.
-- scripts/detect_ats.sh - Helper script to detect ATS and suggest companies.json entries.
-- config/default_skills.json - Default skills configuration used if no skills flags are provided.
-- radar/db/ – SQLAlchemy models, sessions, CRUD helpers
-- radar/api/ – FastAPI entrypoint + dependencies
-- scripts/init_db.py – Creates schema
-- scripts/test_db.py – Sanity check script
+- **CLI & ingestion**: `job_radar.py` orchestrates provider crawlers, description enrichment, filtering, and deduplication.
+- **Provider registry**: modular connectors live under `radar/providers`, making it straightforward to add or tune ATS integrations.
+- **Persistence**: SQLAlchemy models (`Company`, `Job`, `JobSkill`, `CrawlRun`) target PostgreSQL (Docker) with SQLite support for quick local runs.
+- **API**: FastAPI entrypoint (`radar/api/main.py`) exposes health probes, job and company endpoints, and admin ingestion triggers.
+- **Web UI**: Next 15 application (`job-radar-ui`) fetches from the API, offers client filter controls, and includes an admin page for curated imports.
+- **Config & data**: `companies.json`, `config/default_skills.json`, and environment variables drive provider settings, defaults, and admin security.
 
-Step-by-step setup
+## Progress Snapshot
 
-1. Install Python 3.10+ on your machine.
-2. Create a virtual environment.
-   macOS/Linux:
-   python3 -m venv .venv
-   source .venv/bin/activate
-   Windows (PowerShell):
-   py -3 -m venv .venv
-   .venv\Scripts\Activate.ps1
+### Completed
 
-3. Install requirements:
-   pip install -r requirements.txt
+- Provider normalization across Greenhouse, Lever, Workday, Ashby, and Workable with shared schema guarantees.
+- Junior/remote filtering, recency gates, and skill scoring with CSV/JSON export support.
+- Persistence layer and FastAPI service with typed responses, admin token protection, and ingestion endpoints.
+- Curated GitHub ingestion flow wired into both the CLI and the admin endpoint.
+- Next.js job browser foundation with server component data fetching, filter bar, pagination, and company/job tables.
 
-4. Run your first scan (junior-only filter on):
-   python job_radar.py companies.json --junior-only
+### In Flight
 
-   # Relaxed junior mode:
+- Polishing the web UI experience (empty/error states, loading feedback, shared TypeScript types to avoid duplication).
+- Hardening admin actions by improving API error messaging and token-handling in the Next.js route.
+- Capturing ingestion metrics and success diagnostics to surface in API responses and the UI.
 
-   python job_radar.py companies.json --junior-only --relax
+### Up Next
 
-5. Review the output:
-
-   - If there are matches, you will see lines like:
-     - PostHog | Software Engineer I | Remote - US | https://boards.greenhouse.io/...
-   - If you see "No matches found right now", rerun later or add more companies.
-
-6. Add companies you want to watch:
-
-   - Open companies.json.
-   - For Greenhouse or Lever, grab the token from the job board URL once and add a new entry.
-     Examples:
-     Greenhouse: https://boards.greenhouse.io/vercel -> token "vercel"
-     Lever: https://jobs.lever.co/snyk -> token "snyk"
-   - For Workday, you need host and path. Example:
-     DIRECTV: host directv.wd1.myworkdayjobs.com, path External
-     The script will call the JSON endpoint at
-     https://{host}/wday/cxs/{host}/{path}/jobs
-
-   - For Ashby, the token is from jobs.ashbyhq.com/org/<token>.
-   - For Workable, the token is the subdomain or path on apply.workable.com/<token>/.
-
-7. Run it daily:
-   macOS/Linux: use cron or launchd
-   Windows: use Task Scheduler
-   Example cron entry to run at 9:00 AM daily:
-   0 9 \* \* \* /usr/bin/python3 /path/to/job_radar.py /path/to/companies.json --junior-only >> /path/to/radar.log 2>&1
-
-8. Database setup:
-   - Ensure Docker is installed
-   - Start Postgres container with docker run command shown earlier
-   - Create `.env` with DATABASE_URL=postgresql+psycopg://radar:radar@localhost:5432/radar
-   - Run `python scripts/init_db.py`
-
-Tuning the filters
-
-- **Strict junior mode** (`--junior-only`): Accepts only titles with explicit junior signals — "junior", "new grad", "entry level", "software engineer i", or "associate" — and which clearly match engineering roles like Software Engineer/Developer (front end, back end, full‑stack, platform, web, mobile, data, ML, DevOps).
-- **Relaxed junior mode** (`--junior-only --relax`): Also allows roles without explicit junior in the title if the description signals early‑career intent (e.g., “new grad,” “early career,” or ≤3 years experience). Senior/staff/lead titles and non‑engineering roles are still excluded.
-- Senior, staff, principal, lead, manager, and other seniority titles are excluded in all modes.
-- Non‑engineering titles (marketing, sales, account, operations, finance, legal, recruiting, design, architect, consultant, support, etc.) are excluded.
-- US‑remote detection is location‑first: requires “Remote” + “United States” in the location, or if location is empty, requires both terms in the job page. Use `--us-remote-only` and `--exclude-hybrid` to strictly enforce.
-- Use `--no-misfit-block` to include Security/Networking/Rust roles that are blocked by default.
-
-- **Recency filtering** (`--recent-days N`): Keep only jobs posted in the last N days (default 0 = disabled). Use `--require-date` to drop jobs with no date.
-- **Skills filters**:
-
-  - `--skills-any "python,react,fastapi"` keeps jobs that mention any of the terms in the title or snippet.
-  - `--skills-all "python,react"` keeps jobs that mention all listed terms.
-  - By default, skills are used for ranking only. Add `--skills-hard` to drop jobs without matches.
-
-- **Default skills config**:
-
-  - If you don’t pass `--skills-any` or `--skills-all`, the tool will attempt to load defaults from a JSON file.
-  - Search order:
-    1. `--skills-defaults /path/to/file.json` (explicit path)
-    2. `$RADAR_DEFAULT_SKILLS` environment variable (path)
-    3. `config/default_skills.json` (repo default)
-  - JSON format:
-    ```json
-    {
-      "any": [
-        "python",
-        "react",
-        "typescript",
-        "node",
-        "postgres",
-        "sql",
-        "django",
-        "fastapi",
-        "aws"
-      ],
-      "all": []
-    }
-    ```
-  - On load, a message will print showing which defaults were applied.
-
-- **Profiles**:
-
-  - `--profile apply-now`: US remote only, last 14 days, junior-only with relaxed mode, min-score 1.
-  - `--profile research`: Last 30 days, looser filters for exploration.
-  - You can still override any defaults with explicit flags.
-
-- **Per-provider description caps**:
-
-  - By default, description fetching is capped globally with `RADAR_DESC_CAP`.
-  - Override per provider with:
-    - `RADAR_DESC_CAP_GREENHOUSE`
-    - `RADAR_DESC_CAP_LEVER`
-    - `RADAR_DESC_CAP_WORKDAY`
-    - `RADAR_DESC_CAP_ASHBY`
-    - `RADAR_DESC_CAP_WORKABLE`
-
-- **CSV customization**:
-  - Use `--csv-columns` to specify which columns to include and their order.
-  - Default columns:
-    `rank, company, title, location, source, provider, company_token, level, posted_at, posted_days_ago, skill_score, company_priority, url`
-  - Customize per run, e.g.:
-    ```bash
-    python job_radar.py companies.json --profile apply-now \
-      --csv-columns rank,company,title,provider,company_token,posted_days_ago,skill_score,url
-    ```
-
-API usage
-
-Run the FastAPI service:
-uvicorn radar.api.main:app --reload
-
-Endpoints:
-
-- `GET /healthz` → service status
-- `GET /jobs` → supports filters (`limit`, `offset`, `days`, `level`, `remote`, `us_remote_only`, `skills_any`), returns paginated JSON
-- `GET /jobs/{id}` → detailed job with description+skills
-- `GET /companies` → companies with job counts
-- `POST /ingest/curated` → fetch curated GitHub repos (new‑grad SWE jobs) and persist them. Requires admin token header.
-- `POST /scan/ats` → run ATS scan and persist results. Requires admin token header.
-
-### Authentication
-
-- Both `POST /ingest/curated` and `POST /scan/ats` endpoints require an admin token.
-- Pass it as `x-token: $RADAR_ADMIN_TOKEN` in the request header.
-- `RADAR_ADMIN_TOKEN` should be set in `.env` or exported before running the API.
-
-Notes and tips
-
-- Some ATS pages use dynamic content. The provided connectors work for many companies, but not all. Errors for a company will be logged and the scan continues.
-- Workday endpoints sometimes rate-limit. If you add many Workday companies, consider spacing runs or adding sleep.
-- If you want Google Sheets output or Slack/email alerts, I can provide an add-on module.
-
-## Known Limitations
-
-- Ashby and Workable connectors are implemented and wired, but currently most results come from Greenhouse. These providers may require more accurate tokens or further adjustments to yield consistent job listings.
-- Some ATS boards use heavy JavaScript or dynamic rendering, which may not be fully supported with the current plain-requests approach.
-- Workday endpoints are sometimes inconsistent or rate-limited, which can affect reliability for certain companies.
-- Some Workable tenants only render job postings client-side with JavaScript. These may not be supported with the current plain-requests approach.
+- Expand exports and integrations (CSV presets, optional Slack/Sheets delivery, richer saved views).
+- Scheduling and containerization for automated daily runs (cron wrappers, Docker Compose profiles).
+- Automated QA: pytest coverage for provider adapters/API, contract tests for UI fetches, and CI wiring.
 
 ## Roadmap
 
-### **Phase 0: Baseline Setup & Version Control**
+| Phase | Status      | Focus                                       | Key Deliverables                                                     |
+| ----- | ----------- | ------------------------------------------- | -------------------------------------------------------------------- |
+| 0     | Done        | Baseline setup & repo hygiene               | Version control, company list, documentation shell                   |
+| 1     | Done        | Provider normalization & filtering accuracy | Modular connectors, junior/remote heuristics, recency/skills filters |
+| 2     | Done        | Persistence & minimal API                   | SQLAlchemy models, FastAPI service, admin token gating               |
+| 2.5   | Done        | Curated GitHub ingestion                    | Import pipeline for remote new-grad lists, CLI + API wiring          |
+| 3     | In progress | Web experience & export polish              | Next.js UI refinements, CSV customization, admin actions UX          |
+| 4     | Planned     | Scheduling & containerization               | Docker image(s), Compose stack, cron/task automation                 |
+| 5     | Planned     | Integrations & notifications                | Slack/email hooks, Google Sheets sync, webhook surface               |
+| 6     | Planned     | Performance & resilience                    | Provider rate-limit handling, caching, observability                 |
+| 7     | Planned     | Automation & QA                             | Test suite coverage, CI/CD, coding standards enforcement             |
 
-- Establish a clean, maintainable codebase.
-- Curate a reliable initial company list.
-- Set up version control and documentation.
+## Quality & Engineering Practices
 
-### **Phase 1: Provider Normalization & Filtering Accuracy** ✅
+- **Strengths**: modular provider registry with shared normalization, typed FastAPI responses with dependency-injected sessions, and a Next.js UI that leans on server components, accessible table markup, and centralized env handling.
+- **Currently tightening**: align shared TypeScript models (`lib/types` vs `lib/api`), add resilient error and loading states in the UI, and document environment variables (`DATABASE_URL`, `RADAR_ADMIN_TOKEN`, `NEXT_PUBLIC_API_URL`).
+- **Next quality investments**: expand pytest coverage (providers, filters, API contracts), add regression tests for CLI flags, wire `npm run lint` and backend checks into CI, and introduce structured logging/metrics for ingestion runs.
 
-- Completed: modular connectors for multiple ATS providers, improved filtering accuracy, consistent schema across providers.
+## Getting Started
 
-### **Phase 2: Persistence + Minimal API** ✅ (completed)
+### Prerequisites
 
-- Add caching and data persistence.
-- Provide a minimal API for job queries.
+- Python 3.10+
+- Node.js 18+ (for the Next.js UI)
+- Docker (recommended for local PostgreSQL) or access to a PostgreSQL instance
 
-### Phase 2.5: Curated GitHub repos integration for new‑grad SWE jobs (remote‑only extraction) ✅ completed
+### Backend & CLI
 
-- Integrate curated GitHub repositories to extract remote new-grad SWE job listings.
+1. Create and activate a virtual environment:
 
-### Phase 3: Exports & Integrations (CSV, Google Sheets, Slack/email)
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   ```
 
-- Support CSV exports with skill scoring.
-- Add integrations for Google Sheets and notifications.
+2. Install dependencies:
 
-### Phase 4: Scheduling + Containerization
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-- Enable scheduled runs via cron or similar.
-- Containerize the application for easier deployment.
+3. Run your first scan (junior-friendly filter enabled):
 
-### Phase 5: Performance & Resilience
+   ```bash
+   python job_radar.py companies.json --junior-only
+   ```
 
-- Optimize runtime and resource usage.
-- Improve error handling and retries.
+4. Relaxed junior mode and CSV export example:
 
-### Phase 6: Dashboard (Optional)
+   ```bash
+   python job_radar.py companies.json --junior-only --relax --csv out.csv
+   ```
 
-- Develop a web dashboard for monitoring scans and results.
+### API Service
 
-### Phase 7: Tests & CI
+1. Configure environment (example `.env` snippet):
 
-- Add unit and integration tests.
-- Set up continuous integration pipelines.
+   ```bash
+   export DATABASE_URL="postgresql+psycopg://radar:radar@localhost:5432/radar"
+   export RADAR_ADMIN_TOKEN="super-secret-token"
+   ```
 
-Note: Ashby and Workable are implemented but currently Greenhouse provides the bulk of results.
+2. Initialize the database schema:
+
+   ```bash
+   python scripts/init_db.py
+   ```
+
+3. Launch the API:
+
+   ```bash
+   uvicorn radar.api.main:app --reload
+   ```
+
+### Web UI (Next.js)
+
+1. Install dependencies:
+
+   ```bash
+   cd job-radar-ui
+   npm install
+   ```
+
+2. Create `.env.local` with:
+
+   ```bash
+   NEXT_PUBLIC_API_URL=http://localhost:8000
+   RADAR_ADMIN_TOKEN=super-secret-token
+   ```
+
+3. Start the dev server:
+
+   ```bash
+   npm run dev
+   ```
+
+4. Visit `http://localhost:3000` for the job browser and `/admin` for admin actions.
+
+### Database (PostgreSQL via Docker)
+
+```bash
+docker run --name radar-postgres -e POSTGRES_USER=radar -e POSTGRES_PASSWORD=radar \
+  -e POSTGRES_DB=radar -p 5432:5432 -d postgres:16
+```
+
+## Usage Reference
+
+### CLI filters & flags
+
+- `--junior-only` limits to explicit junior/new-grad/entry-level titles.
+- `--junior-only --relax` accepts early-career signals (<=3 years experience) found in descriptions.
+- `--us-remote-only` and `--exclude-hybrid` enforce fully remote US-friendly roles.
+- `--recent-days N` keeps jobs posted in the last `N` days (`--require-date` drops undated roles).
+- `--skills-any "python,react"` and `--skills-all "python,sql"` apply soft scoring; add `--skills-hard` to enforce as filters.
+- `--profile apply-now` sets a daily run preset (US remote, last 14 days, relaxed junior mode).
+- `--profile research` broadens recency and skill filters for exploration.
+
+### CSV and output customization
+
+- Use `--csv-columns` to choose columns and order (defaults include `rank`, `company`, `title`, `provider`, `posted_at`, `skill_score`, `url`).
+- Global description fetch caps: `RADAR_DESC_CAP`, `RADAR_DESC_TIMEOUT`, `RADAR_DESC_MAX_CHARS`.
+- Per-provider description caps: `RADAR_DESC_CAP_GREENHOUSE`, `RADAR_DESC_CAP_LEVER`, `RADAR_DESC_CAP_WORKDAY`, `RADAR_DESC_CAP_ASHBY`, `RADAR_DESC_CAP_WORKABLE`.
+
+### API endpoints
+
+- `GET /healthz` – service status.
+- `GET /jobs` – pagination, level/remote/provider/company filters, `skills_any`, `order=posted_at_desc|posted_at_asc|id_desc|id_asc`.
+- `GET /jobs/{id}` – job detail with description and skills.
+- `GET /companies` – company list with job counts.
+- `POST /ingest/curated` – pulls curated GitHub repos (admin token required).
+- `POST /scan/ats` – runs the CLI ingestion workflow (admin token required).
+
+## Known Limitations
+
+- Ashby and Workable connectors are wired but still rely on accurate tokens and may produce sparse results.
+- Some ATS boards render via heavy client-side JavaScript, which the current requests-based fetcher does not execute.
+- Workday tenants can rate-limit or vary JSON payloads; large Workday lists may require throttling or tailored parsing.
+- Workable tenants that render postings client-side are not supported without a headless browser approach.
+
+## Development Workflow
+
+- Use feature branches and keep commits focused; document user-facing changes in this README or a future changelog.
+- Run ingestion locally (`python job_radar.py ...`) after modifying providers or filters, and spot-check results.
+- Run `pytest` (once the suite is in place) and `npm run lint` before opening a PR.
+- Keep environment variables out of version control; coordinate secrets via `.env` files ignored by git.
+- Open issues for new providers, integration ideas, or UX polish to keep the roadmap transparent.

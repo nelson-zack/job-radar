@@ -1,10 +1,48 @@
+/* styles/theme.css — Job Radar dark palette */
 :root {
-  --bg: #0e1116;
-  --surface: #121821;
-  --surface-2: #0f151c;
-  --border: #1f2937;
-  --text: #e6edf3;
-  --muted: #9aa4b2;
-  --accent: #22d3ee; /* tweak later to match your exact portfolio cyan */
-  --ring: rgba(34, 211, 238, 0.25);
+  --bg: #06090f;
+  --surface-1: #0d141f;
+  --surface-2: #131c2b;
+  --surface-3: rgba(28, 41, 60, 0.6);
+  --surface: var(--surface-2);
+  --surface-soft: rgba(19, 28, 43, 0.72);
+
+  --text: #e9f2ff;
+  --text-muted: #99a7c2;
+  --text-strong: #f9fbff;
+  --muted: var(--text-muted);
+
+  --line: rgba(86, 119, 176, 0.24);
+  --border: rgba(64, 93, 143, 0.45);
+  --ring: rgba(34, 211, 238, 0.45);
+
+  --accent: #06b6d4;
+  --accent-2: #22d3ee;
+  --accent-soft: rgba(34, 211, 238, 0.14);
+
+  --tag-bg: rgba(34, 211, 238, 0.18);
+  --tag-text: #dff6ff;
+
+  --shadow-sm: 0 6px 18px -12px rgba(6, 182, 212, 0.4);
+  --shadow-md: 0 16px 38px -20px rgba(15, 23, 42, 0.6);
+  --shadow-lg: 0 28px 60px -30px rgba(6, 182, 212, 0.45);
+}
+
+/* sensible defaults */
+a {
+  color: var(--accent);
+}
+a:hover {
+  color: var(--accent-2);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--text);
+}
+
+/* focus ring */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  outline-offset: 2px;
 }

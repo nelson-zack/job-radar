@@ -1,25 +1,12 @@
 @import 'tailwindcss';
 @import '../styles/theme.css';
 
-:root {
-  /* base palette */
-  --bg: #0e1116; /* off‑black, not pure black */
-  --fg: #e6edf3; /* soft white */
-  --surface: #121821; /* card/table rows */
-  --surface-2: #0f151c; /* header bars */
-  --border: #1f2937; /* slate-700-ish lines */
-  --muted: #9aa4b2; /* subdued text */
-  --accent: #22d3ee; /* cyan accent */
-  --ring: rgba(34, 211, 238, 0.25);
-}
-
-/* Map variables into Tailwind v4 tokens */
+/* Map Tailwind design tokens to variables defined in styles/theme.css */
 @theme inline {
   --color-background: var(--bg);
-  --color-foreground: var(--fg);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-border: var(--border);
+  --color-foreground: var(--text);
+  --color-surface: var(--surface-1);
+  --color-border: var(--line);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
   --font-sans: var(--font-geist-sans);
@@ -29,39 +16,95 @@
 /* Global base */
 body {
   background: var(--bg);
-  color: var(--fg);
+  color: var(--text);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
     'Segoe UI', Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
 }
 
-/* Small utilities to keep JSX clean (optional) */
+/* Small utilities to keep JSX clean */
 .table-card {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: 12px;
+  border: none;
+  background: color-mix(in srgb, var(--surface-1) 78%, var(--surface-2) 22%);
+  border-radius: 0;
   overflow: hidden;
+  backdrop-filter: blur(18px);
+  table-layout: fixed;
 }
+
 .th {
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
   font-weight: 600;
   color: var(--muted);
-  background: var(--surface-2);
-  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, var(--surface-1) 85%, transparent 15%);
+  padding: 0.85rem 1rem;
   border-bottom: 1px solid var(--border);
 }
+
 .td {
-  padding: 0.75rem 1rem;
-  border-top: 1px solid var(--border);
+  padding: 0.8rem 1rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent 40%);
 }
+
 .link {
   color: var(--accent);
-  text-decoration: underline;
+  text-decoration: none;
+  font-weight: 600;
 }
+
 .link:hover {
-  opacity: 0.9;
+  color: var(--accent-2);
+}
+
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: var(--accent-soft);
+  color: var(--tag-text);
+}
+
+.chip::before {
+  content: '';
+  display: inline-block;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 9999px;
+  background: var(--accent);
+}
+
+tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--surface-2) 65%, transparent 35%);
+}
+
+tbody tr:hover {
+  background: color-mix(in srgb, var(--accent-soft) 75%, var(--surface-2) 25%);
+}
+
+/* Optional: selection matches theme */
+::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--text);
+}
+
+/* Optional: global focus ring using theme accent */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  outline-offset: 2px;
 }

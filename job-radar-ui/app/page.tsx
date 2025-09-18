@@ -5,6 +5,7 @@ import Pagination from '@/components/Pagination';
 import { fetchJobs } from '@/lib/api';
 import type { JobsResponse } from '@/lib/types';
 import PageShell from '@/components/layout/PageShell';
+import { ALLOWED_ORDERS_SET, Order } from '@/lib/sort';
 
 const PAGE_SIZE_DEFAULT = 25;
 
@@ -23,43 +24,78 @@ export default async function Home({
 
   const level = sp.level ?? 'any';
   const skills = sp.skills ?? '';
+  const rawOrder = sp.order ?? 'posted_at_desc';
+  const order: Order = ALLOWED_ORDERS_SET.has(rawOrder as Order)
+    ? (rawOrder as Order)
+    : 'posted_at_desc';
   const page = toInt(sp.page, 0);
   const limit = toInt(sp.limit, PAGE_SIZE_DEFAULT);
   const offset = page * limit;
 
+  // Only include filters if they are meaningful (avoid level=any, empty skills)
   const data: JobsResponse = await fetchJobs({
-    level: level === 'any' ? undefined : level,
-    skills_any: skills,
+    ...(level !== 'any' ? { level } : {}),
+    ...(skills ? { skills_any: skills } : {}),
     limit,
     offset,
-    order: 'id_desc'
+    order
   });
 
   const totalPages = Math.max(1, Math.ceil((data.total ?? 0) / limit));
 
   const makeHref = (p: number) => {
     const params = new URLSearchParams({
-      level,
-      skills,
+      order,
       page: String(p),
       limit: String(limit)
     });
+    if (level !== 'any') params.set('level', level);
+    if (skills) params.set('skills', skills);
     return `/?${params.toString()}`;
   };
 
+  const activeChips: string[] = [];
+  if (level !== 'any') activeChips.push(level);
+  if (skills) activeChips.push(skills);
+
   return (
     <PageShell>
-      <h1 className='text-2xl font-bold'>Job Radar</h1>
+      <header className='mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between'>
+        <div className='space-y-2'>
+          <h1 className='text-3xl font-semibold text-[var(--text-strong)]'>Job Radar</h1>
+          <p className='text-sm text-[var(--muted)]'>
+            Surfacing remote-friendly early-career software roles pulled straight from ATS sources.
+          </p>
+        </div>
+        <div className='flex flex-wrap items-center gap-2'>
+          <span className='chip normal-case tracking-normal'>Total {data.total}</span>
+          <span className='chip normal-case tracking-normal'>Page {page + 1}</span>
+        </div>
+      </header>
 
-      {/* Client component handles its own form submit/navigation */}
-      <FiltersBar initialLevel={level} initialSkills={skills} />
+      <FiltersBar
+        initialLevel={level}
+        initialSkills={skills}
+        initialOrder={order}
+      />
+
+      {activeChips.length > 0 && (
+        <div className='mb-4 flex flex-wrap items-center gap-2 text-xs'>
+          <span className='uppercase tracking-[0.18em] text-[var(--muted)]'>Filters</span>
+          {activeChips.map((c, i) => (
+            <span key={i} className='chip normal-case tracking-normal'>
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
 
       <JobTable jobs={data.items} />
 
       <Pagination page={page} totalPages={totalPages} makeHref={makeHref} />
 
-      <p className='text-xs text-[var(--muted)]'>
-        Showing {Math.min(limit, data.items.length)} of {data.total}
+      <p className='mt-3 text-xs text-[var(--muted)]'>
+        Showing {Math.min(limit, data.items.length)} of {data.total} roles
       </p>
     </PageShell>
   );
