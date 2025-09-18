@@ -1,6 +1,8 @@
 // app/api/ingest-curated/route.ts
+import { API_BASE_URL } from '@/utils/env';
+
 export async function POST() {
-  const api = process.env.NEXT_PUBLIC_API_URL!;
+  const api = API_BASE_URL;
   const token = process.env.RADAR_ADMIN_TOKEN ?? '';
   const r = await fetch(`${api}/ingest/curated`, {
     method: 'POST',

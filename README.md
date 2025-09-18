@@ -70,7 +70,7 @@
 ## Quality & Engineering Practices
 
 - **Strengths**: modular provider registry with shared normalization, typed FastAPI responses with dependency-injected sessions, and a Next.js UI that leans on server components, accessible table markup, and centralized env handling.
-- **Currently tightening**: align shared TypeScript models (`lib/types` vs `lib/api`), add resilient error and loading states in the UI, and document environment variables (`DATABASE_URL`, `RADAR_ADMIN_TOKEN`, `NEXT_PUBLIC_API_URL`).
+- **Currently tightening**: align shared TypeScript models (`lib/types` vs `lib/api`), add resilient error and loading states in the UI, and document environment variables (`DATABASE_URL`, `RADAR_ADMIN_TOKEN`, `NEXT_PUBLIC_API_BASE_URL`, `PUBLIC_READONLY`).
 - **Next quality investments**: expand pytest coverage (providers, filters, API contracts), add regression tests for CLI flags, wire `npm run lint` and backend checks into CI, and introduce structured logging/metrics for ingestion runs.
 
 ## Getting Started
@@ -141,7 +141,8 @@
 2. Create `.env.local` with:
 
    ```bash
-   NEXT_PUBLIC_API_URL=http://localhost:8000
+   NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+   PUBLIC_READONLY=false
    RADAR_ADMIN_TOKEN=super-secret-token
    ```
 
@@ -198,6 +199,6 @@ docker run --name radar-postgres -e POSTGRES_USER=radar -e POSTGRES_PASSWORD=rad
 
 - Use feature branches and keep commits focused; document user-facing changes in this README or a future changelog.
 - Run ingestion locally (`python job_radar.py ...`) after modifying providers or filters, and spot-check results.
-- Run `pytest` (once the suite is in place) and `npm run lint` before opening a PR.
+- Run `pytest` (once the suite is in place), `npm run lint`, and `npm run test` before opening a PR.
 - Keep environment variables out of version control; coordinate secrets via `.env` files ignored by git.
 - Open issues for new providers, integration ideas, or UX polish to keep the roadmap transparent.

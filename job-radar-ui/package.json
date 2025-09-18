@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "npm run test:build && node --test .test-dist/tests/**/*.test.js",
+    "test:build": "tsc -p tsconfig.test.json"
   },
   "dependencies": {
     "clsx": "^2.1.1",
