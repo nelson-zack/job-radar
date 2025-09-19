@@ -35,6 +35,8 @@ class GithubCuratedScrapeTests(unittest.TestCase):
                 only_remote=False,
                 us_only=False,
                 git_ctx=None,
+                enable_scrape=True,
+                enable_inference=False,
             )
         self.assertEqual(len(jobs), 1)
         job = jobs[0]
