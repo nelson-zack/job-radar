@@ -15,6 +15,7 @@ import subprocess, sys
 from radar.providers.github_curated import fetch_curated_github_jobs
 from radar.db.crud import upsert_job
 from radar.db.session import get_session
+from radar.core.providers import visible_providers
 import logging
 
 ADMIN_TOKEN = os.getenv("RADAR_ADMIN_TOKEN", "")
@@ -26,7 +27,6 @@ def require_admin(x_token: str | None) -> None:
 
 from radar.api.deps import db_session
 from radar.db.models import Job, Company, JobSkill
-from radar.providers.github_curated import fetch_curated_github_jobs
 from radar.filters.entry import (
     is_entry_exclusion_enabled,
     filter_entry_level,
@@ -44,6 +44,7 @@ def github_date_inference_enabled() -> bool:
 # -------------------------
 app = FastAPI(title="Job Radar API", version="0.2.0")
 LOGGER = logging.getLogger(__name__)
+ENABLE_EXPERIMENTAL = os.getenv("ENABLE_EXPERIMENTAL", "false").lower() == "true"
 
 # CORS (open for now; tighten before public deploy)
 app.add_middleware(
@@ -147,8 +148,13 @@ async def get_jobs(
         query = query.filter(Job.level == level)
     if remote is not None:
         query = query.filter(Job.is_remote.is_(remote))
+    if provider and provider.lower() == 'all':
+        provider = None
     if provider:
         query = query.filter(Job.provider == provider)
+    else:
+        allowed = visible_providers(ENABLE_EXPERIMENTAL)
+        query = query.filter(Job.provider.in_(allowed))
     if company:
         query = query.filter(Company.slug == company)
     if days is not None and days > 0:
