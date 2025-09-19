@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Iterable, Iterator, List, Dict, Optional, Tuple, Set
 import hashlib
 import logging
+import os
 import re
 import time
 from urllib.parse import urlparse
@@ -26,6 +27,9 @@ from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 import requests
 from bs4 import BeautifulSoup
 from bs4.element import Tag
+
+from radar.core.date_parse import parse_curated_date
+from radar.core.github_dates import infer_posted_at, log_inference_metrics
 
 # Prefer "Apply" links in HTML tags
 def _pick_href_from_tag(tag: Tag) -> Optional[str]:
@@ -302,6 +306,14 @@ def _normalize_source_url(url: str) -> str:
     return _candidate_raw_urls(url)[0]
 
 
+def _flag_github_date_inference() -> bool:
+    return os.getenv("GITHUB_DATE_INFERENCE", "false").lower() == "true"
+
+
+def _flag_github_curated_date_scrape() -> bool:
+    return os.getenv("GITHUB_CURATED_DATE_SCRAPE", "false").lower() == "true"
+
+
 # --------- HTML table parsing (for READMEs that embed HTML) --------------
 
 def _iter_rows_from_html_tables(md: str) -> Iterator[ParsedRow]:
@@ -357,6 +369,12 @@ def _iter_rows_from_html_tables(md: str) -> Iterator[ParsedRow]:
             location = (
                 cells[col["location"]] if "location" in col and len(cells) > col["location"] else ""
             )
+            date_val = (
+                cells[col["date"]] if "date" in col and len(cells) > col["date"] else ""
+            )
+            age_val = (
+                cells[col["age"]] if "age" in col and len(cells) > col["age"] else ""
+            )
 
             # Prefer explicit link cell; otherwise search links in row
             url: Optional[str] = None
@@ -366,7 +384,7 @@ def _iter_rows_from_html_tables(md: str) -> Iterator[ParsedRow]:
                     url = _pick_href_from_tag(td_cell)
             url = url or _pick_href_from_tag(tr)
 
-            yield ParsedRow(company=company, title=title, location=location, url=url)
+            yield ParsedRow(company=company, title=title, location=location, url=url, date=date_val, age=age_val)
 
 
 # --------- Markdown table parsing -------------------------------------------
@@ -377,6 +395,9 @@ class ParsedRow:
     title: str
     location: str
     url: Optional[str]
+    date: str = ""
+    age: str = ""
+    posted_at: str = ""
 
 
 def _iter_md_tables(md: str) -> Iterator[list[list[str]]]:
@@ -436,6 +457,10 @@ def _find_col_idx(header_cells: list[str]) -> Dict[str, int]:
             idx.setdefault("location", i)
         if any(k in hl for k in ("apply", "link", "url", "posting")):
             idx.setdefault("url", i)
+        if any(k in hl for k in ("date", "posted", "posted on", "updated", "last update", "last updated")):
+            idx.setdefault("date", i)
+        if any(k in hl for k in ("age", "ago")):
+            idx.setdefault("age", i)
     return idx
 
 
@@ -462,7 +487,9 @@ def _iter_rows_from_md(md: str) -> Iterator[ParsedRow]:
             # Clean company/title plain text (remove markdown)
             company = _clean_company_name(_LINK_RE.sub(lambda m: m.group(1), company).strip())
             title = _LINK_RE.sub(lambda m: m.group(1), title).strip()
-            yield ParsedRow(company=company, title=title, location=location, url=url)
+            date_val = r[col.get("date", 0)] if "date" in col else ""
+            age_val = r[col.get("age", 0)] if "age" in col else ""
+            yield ParsedRow(company=company, title=title, location=location, url=url, date=date_val, age=age_val)
 
 
 def _iter_rows_from_bullets(md: str) -> Iterator[ParsedRow]:
@@ -506,6 +533,7 @@ def fetch_curated_github_jobs(
     only_remote: bool = True,
     us_only: bool = True,
     provider_label: str = "github",
+    git_ctx: Optional[object] = None,
 ) -> List[Dict]:
     """
     Fetch and normalize jobs from curated GitHub lists.
@@ -523,6 +551,11 @@ def fetch_curated_github_jobs(
     """
     jobs: List[Dict] = []
     seen_urls: Set[str] = set()
+    inference_enabled = _flag_github_date_inference()
+    scrape_enabled = _flag_github_curated_date_scrape()
+    parsed_dates = 0
+    inferred_dates = 0
+    undated_after = 0
     for src in sources:
         md = _fetch_markdown(src)
         if not md:
@@ -532,7 +565,7 @@ def fetch_curated_github_jobs(
         produced = 0
 
         def _process_row(row: ParsedRow) -> None:
-            nonlocal produced
+            nonlocal produced, parsed_dates, inferred_dates, undated_after
             if not row.url:
                 return
             row_url = _canonicalize_url(row.url)
@@ -561,19 +594,45 @@ def fetch_curated_github_jobs(
             company_token = slug
             external_id = _hash_external(row_url)
 
-            jobs.append(
-                {
-                    "provider": provider_label,
-                    "external_id": external_id,
-                    "company": comp or company_token,
-                    "company_token": company_token,
-                    "title": title if title else "Software Engineer (New Grad)",
-                    "url": row_url,
-                    "location": location,
-                    "is_remote": bool(is_remote),
-                    "level": level,
-                }
-            )
+            payload = {
+                "provider": provider_label,
+                "external_id": external_id,
+                "company": comp or company_token,
+                "company_token": company_token,
+                "title": title if title else "Software Engineer (New Grad)",
+                "url": row_url,
+                "location": location,
+                "is_remote": bool(is_remote),
+                "level": level,
+            }
+
+            date_candidates = []
+            for attr in ("date", "age", "posted_at"):
+                val = getattr(row, attr, None)
+                if val:
+                    date_candidates.append(val)
+
+            if scrape_enabled:
+                for candidate in date_candidates:
+                    clean = _LINK_RE.sub(lambda m: m.group(1), str(candidate)).strip().strip('*_ ')
+                    parsed_dt = parse_curated_date(clean)
+                    if parsed_dt is not None:
+                        payload["posted_at"] = parsed_dt
+                        parsed_dates += 1
+                        break
+
+            if payload.get("posted_at") is None:
+                if inference_enabled:
+                    inferred_dt = infer_posted_at(external_id, git_ctx) if git_ctx is not None else None
+                    if inferred_dt is not None:
+                        payload["posted_at"] = inferred_dt
+                        inferred_dates += 1
+                    else:
+                        undated_after += 1
+                else:
+                    undated_after += 1
+
+            jobs.append(payload)
             seen_urls.add(row_url)
             produced += 1
 
@@ -589,5 +648,18 @@ def fetch_curated_github_jobs(
         if produced == 0:
             for r in _iter_rows_from_bullets(md):
                 _process_row(r)
+
+    if inference_enabled:
+        log_inference_metrics(log, provider_label, inferred_dates, undated_after, len(jobs))
+
+    if scrape_enabled:
+        log.info(
+            "github-date-scrape provider=%s parsed=%s inferred=%s undated=%s total=%s",
+            provider_label,
+            parsed_dates,
+            inferred_dates,
+            undated_after,
+            len(jobs),
+        )
 
     return jobs
