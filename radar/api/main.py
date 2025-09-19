@@ -33,6 +33,7 @@ from radar.filters.entry import (
     title_exclusion_terms,
     description_exclusion_patterns,
 )
+from sqlalchemy import case
 
 
 def github_date_inference_enabled() -> bool:
@@ -45,6 +46,8 @@ def github_date_inference_enabled() -> bool:
 app = FastAPI(title="Job Radar API", version="0.2.0")
 LOGGER = logging.getLogger(__name__)
 ENABLE_EXPERIMENTAL = os.getenv("ENABLE_EXPERIMENTAL", "false").lower() == "true"
+METRICS_PUBLIC = os.getenv("METRICS_PUBLIC", "false").lower() == "true"
+LAST_INGEST_AT: datetime | None = None
 
 # CORS (open for now; tighten before public deploy)
 app.add_middleware(
@@ -304,6 +307,8 @@ async def get_job_detail(job_id: int, session: Session = Depends(db_session)):
 def ingest_curated(x_token: str | None = Header(default=None)):
     require_admin(x_token)
     rows = fetch_curated_github_jobs()
+    global LAST_INGEST_AT
+    LAST_INGEST_AT = datetime.utcnow()
     saved = 0
     with get_session() as s:
         session_obj: Session = cast(Session, s)
@@ -318,6 +323,8 @@ def scan_ats(x_token: str | None = Header(default=None)):
     require_admin(x_token)
     # Run the existing CLI using the current Python interpreter so we stay in this venv.
     script_path = os.path.join(os.getcwd(), "job_radar.py")
+    global LAST_INGEST_AT
+    LAST_INGEST_AT = datetime.utcnow()
     try:
         proc = subprocess.run(
             [sys.executable, script_path, "companies.json", "--profile", "apply-now", "--save"],
@@ -386,3 +393,69 @@ def backfill_posted_at(x_token: str | None = Header(default=None)):
         "updated": updated,
         "missing": missing,
     }
+
+
+def compute_ingestion_metrics(session: Session) -> dict:
+    total = session.query(func.count(Job.id)).scalar() or 0
+    if total == 0:
+        return {
+            "total": 0,
+            "kept": 0,
+            "excluded_by_title": 0,
+            "excluded_by_yoe": 0,
+            "percent_undated": 0.0,
+            "by_provider": {},
+        }
+
+    undated = (
+        session.query(func.count(Job.id))
+        .filter(Job.posted_at.is_(None))
+        .scalar()
+        or 0
+    )
+
+    excluded_title = 0
+    excluded_yoe = 0
+    for title, description in session.query(Job.title, Job.description).all():
+        decision, reason = filter_entry_level({"title": title, "description": description})
+        if decision == "exclude" and reason == "title-senior-term":
+            excluded_title += 1
+        elif decision == "exclude" and reason == "description-3plus-years":
+            excluded_yoe += 1
+
+    provider_rows = (
+        session.query(
+            Job.provider,
+            func.count(Job.id),
+            func.sum(case((Job.posted_at.is_(None), 1), else_=0)),
+        )
+        .group_by(Job.provider)
+        .all()
+    )
+    by_provider = {
+        provider: {"total": int(total_count or 0), "undated": int(undated_count or 0)}
+        for provider, total_count, undated_count in provider_rows
+    }
+
+    percent_undated = float(undated) / float(total) * 100 if total else 0.0
+
+    return {
+        "total": int(total),
+        "kept": int(total),
+        "excluded_by_title": int(excluded_title),
+        "excluded_by_yoe": int(excluded_yoe),
+        "percent_undated": percent_undated,
+        "by_provider": by_provider,
+    }
+
+
+@app.get("/metrics/ingestion", tags=["metrics"])
+def get_metrics_ingestion(
+    x_token: str | None = Header(default=None),
+    session: Session = Depends(db_session),
+):
+    if not METRICS_PUBLIC:
+        require_admin(x_token)
+    metrics = compute_ingestion_metrics(session)
+    metrics["last_ingest_at"] = LAST_INGEST_AT.isoformat() if LAST_INGEST_AT else None
+    return metrics

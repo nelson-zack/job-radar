@@ -118,6 +118,7 @@
    export FILTER_ENTRY_EXCLUSIONS=false
    export GITHUB_DATE_INFERENCE=false
    export GITHUB_CURATED_DATE_SCRAPE=false
+   export METRICS_PUBLIC=false
    ```
 
 2. Initialize the database schema:
@@ -191,6 +192,7 @@ docker run --name radar-postgres -e POSTGRES_USER=radar -e POSTGRES_PASSWORD=rad
 - `POST /ingest/curated` – pulls curated GitHub repos (admin token required).
 - `POST /scan/ats` – runs the CLI ingestion workflow (admin token required).
 - `POST /admin/backfill-posted-at` – fills missing `posted_at` timestamps for GitHub-curated entries (admin token required).
+- `GET /metrics/ingestion` – aggregates ingestion stats (totals, exclusions, percent undated, per-provider counts, last ingest time).
 
 ### Feature flags
 
@@ -198,12 +200,35 @@ docker run --name radar-postgres -e POSTGRES_USER=radar -e POSTGRES_PASSWORD=rad
 - `FILTER_ENTRY_EXCLUSIONS` – set to `true` to drop senior/3+ YOE roles server-side.
 - `GITHUB_DATE_INFERENCE` – set to `true` to infer posted dates via git history for curated sources.
 - `GITHUB_CURATED_DATE_SCRAPE` – set to `true` to persist dates scraped from curated GitHub lists during ingestion.
+- `METRICS_PUBLIC` – set to `true` to expose `/metrics/ingestion` without an admin token.
 
 ### Provider statuses
 
 - Supported: greenhouse
 - Experimental: ashby, workday, lever (enable via `ENABLE_EXPERIMENTAL=true`)
 - Planned: microsoft, coalition
+
+### Metrics
+
+Keys returned by `GET /metrics/ingestion` when available:
+
+- `total`: Total jobs currently stored.
+- `kept`: Jobs currently stored (equal to `total`).
+- `excluded_by_title`: Count of jobs that would be excluded today due to senior titles.
+- `excluded_by_yoe`: Count of jobs that would be excluded due to 3+ year requirements.
+- `percent_undated`: Percentage of jobs missing `posted_at`.
+- `by_provider`: Provider totals and undated counts.
+- `last_ingest_at`: Timestamp of the last ingest/backfill run (if known).
+
+Examples:
+
+```bash
+# public metrics
+curl -s https://api.example.com/metrics/ingestion | jq .
+
+# token-required metrics
+curl -s -H "x-token: $RADAR_ADMIN_TOKEN" https://api.example.com/metrics/ingestion | jq .
+```
 
 ## Known Limitations
 
