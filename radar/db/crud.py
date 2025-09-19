@@ -182,12 +182,14 @@ def upsert_job(session: Session, job_data: dict) -> Job:
             job_data["company_id"] = company.id
 
     if job:
-        # Update columns (ignore None to avoid clobbering existing data unless explicitly set)
         for key, value in job_data.items():
             if key == "id":
                 continue
-            if value is not None:
-                setattr(job, key, value)
+            if value is None:
+                continue
+            if key == "posted_at" and getattr(job, "posted_at", None) is not None:
+                continue
+            setattr(job, key, value)
     else:
         job = Job(**job_data)
         session.add(job)

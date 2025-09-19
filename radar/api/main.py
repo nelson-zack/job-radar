@@ -26,12 +26,17 @@ def require_admin(x_token: str | None) -> None:
 
 from radar.api.deps import db_session
 from radar.db.models import Job, Company, JobSkill
+from radar.providers.github_curated import fetch_curated_github_jobs
 from radar.filters.entry import (
     is_entry_exclusion_enabled,
     filter_entry_level,
     title_exclusion_terms,
     description_exclusion_patterns,
 )
+
+
+def github_date_inference_enabled() -> bool:
+    return os.getenv("GITHUB_DATE_INFERENCE", "false").lower() == "true"
 
 
 # -------------------------
@@ -330,3 +335,48 @@ async def debug_db(session: Session = Depends(db_session)):
         return {"ok": True}
     except Exception as e:  # pragma: no cover
         return {"ok": False, "error": str(e)}
+
+
+@app.post("/admin/backfill-posted-at", tags=["admin"])
+def backfill_posted_at(x_token: str | None = Header(default=None)):
+    require_admin(x_token)
+
+    scrape_jobs = fetch_curated_github_jobs(
+        enable_scrape=True,
+        enable_inference=github_date_inference_enabled(),
+    )
+    lookup = {
+        job.get("external_id"): job
+        for job in scrape_jobs
+        if job.get("external_id") and job.get("posted_at") is not None
+    }
+
+    updated = 0
+    missing = 0
+    total = 0
+
+    with get_session() as session:
+        rows: list[Job] = (
+            session.query(Job)
+            .filter(Job.provider == "github")
+            .filter(Job.posted_at == None)  # noqa: E711
+            .all()
+        )
+
+        for row in rows:
+            total += 1
+            scraped = lookup.get(row.external_id)
+            if scraped and scraped.get("posted_at"):
+                row.posted_at = scraped["posted_at"]
+                updated += 1
+            else:
+                missing += 1
+
+        session.commit()
+
+    return {
+        "provider": "github",
+        "checked": total,
+        "updated": updated,
+        "missing": missing,
+    }

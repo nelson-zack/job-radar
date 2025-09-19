@@ -116,6 +116,8 @@
    export DATABASE_URL="postgresql+psycopg://radar:radar@localhost:5432/radar"
    export RADAR_ADMIN_TOKEN="super-secret-token"
    export FILTER_ENTRY_EXCLUSIONS=false
+   export GITHUB_DATE_INFERENCE=false
+   export GITHUB_CURATED_DATE_SCRAPE=false
    ```
 
 2. Initialize the database schema:
@@ -188,11 +190,14 @@ docker run --name radar-postgres -e POSTGRES_USER=radar -e POSTGRES_PASSWORD=rad
 - `GET /companies` – company list with job counts.
 - `POST /ingest/curated` – pulls curated GitHub repos (admin token required).
 - `POST /scan/ats` – runs the CLI ingestion workflow (admin token required).
+- `POST /admin/backfill-posted-at` – fills missing `posted_at` timestamps for GitHub-curated entries (admin token required).
 
 ### Feature flags
 
 - `PUBLIC_READONLY` – set to `true` to hide client-side write controls.
 - `FILTER_ENTRY_EXCLUSIONS` – set to `true` to drop senior/3+ YOE roles server-side.
+- `GITHUB_DATE_INFERENCE` – set to `true` to infer posted dates via git history for curated sources.
+- `GITHUB_CURATED_DATE_SCRAPE` – set to `true` to persist dates scraped from curated GitHub lists during ingestion.
 
 ## Known Limitations
 
@@ -205,6 +210,7 @@ docker run --name radar-postgres -e POSTGRES_USER=radar -e POSTGRES_PASSWORD=rad
 
 - Use feature branches and keep commits focused; document user-facing changes in this README or a future changelog.
 - Run ingestion locally (`python job_radar.py ...`) after modifying providers or filters, and spot-check results.
-- Run `pytest` (once the suite is in place), `npm run lint`, and `npm run test` before opening a PR.
+- Run `pytest` (once the suite is in place), `npm run lint`, `npm run test`, and `python3 -m unittest discover tests -v` before opening a PR.
+- Admin tools: `curl -X POST http://localhost:8000/ingest/curated -H 'x-token: $RADAR_ADMIN_TOKEN'` and `curl -X POST http://localhost:8000/admin/backfill-posted-at -H 'x-token: $RADAR_ADMIN_TOKEN'` support manual maintenance.
 - Keep environment variables out of version control; coordinate secrets via `.env` files ignored by git.
 - Open issues for new providers, integration ideas, or UX polish to keep the roadmap transparent.

@@ -534,6 +534,8 @@ def fetch_curated_github_jobs(
     us_only: bool = True,
     provider_label: str = "github",
     git_ctx: Optional[object] = None,
+    enable_scrape: Optional[bool] = None,
+    enable_inference: Optional[bool] = None,
 ) -> List[Dict]:
     """
     Fetch and normalize jobs from curated GitHub lists.
@@ -551,8 +553,12 @@ def fetch_curated_github_jobs(
     """
     jobs: List[Dict] = []
     seen_urls: Set[str] = set()
-    inference_enabled = _flag_github_date_inference()
-    scrape_enabled = _flag_github_curated_date_scrape()
+    inference_enabled = (
+        _flag_github_date_inference() if enable_inference is None else enable_inference
+    )
+    scrape_enabled = (
+        _flag_github_curated_date_scrape() if enable_scrape is None else enable_scrape
+    )
     parsed_dates = 0
     inferred_dates = 0
     undated_after = 0
