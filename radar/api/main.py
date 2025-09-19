@@ -34,6 +34,10 @@ from radar.filters.entry import (
 )
 
 
+def github_date_inference_enabled() -> bool:
+    return os.getenv("GITHUB_DATE_INFERENCE", "false").lower() == "true"
+
+
 # -------------------------
 # FastAPI setup
 # -------------------------
@@ -114,6 +118,7 @@ async def get_jobs(
     order: OrderBy = Query("posted_at_desc"),
     skills_any: Optional[str] = Query(None, description="Comma-separated list of skills; match any"),
     us_remote_only: Optional[bool] = Query(None, description="If true, only remote jobs suitable for US"),
+    include_undated: bool = Query(False, description="Include jobs without posted_at when date inference is enabled"),
     session: Session = Depends(db_session),
 ):
     """Query jobs with common filters & pagination.
@@ -163,6 +168,14 @@ async def get_jobs(
     else:  # id_desc
         query = query.order_by(Job.id.desc())
 
+    exclude_undated = (
+        github_date_inference_enabled()
+        and order in ("posted_at_desc", "posted_at_asc")
+        and not include_undated
+    )
+    if exclude_undated:
+        query = query.filter(Job.posted_at != None)  # noqa: E711
+
     entry_filter_enabled = is_entry_exclusion_enabled()
 
     if entry_filter_enabled:
@@ -171,6 +184,16 @@ async def get_jobs(
     else:
         total = query.count()
         rows: list[Job] = query.offset(offset).limit(limit).all()
+
+    if github_date_inference_enabled():
+        undated_count = sum(1 for j in rows if j.posted_at is None)
+        percent = (undated_count / len(rows) * 100) if rows else 0.0
+        LOGGER.debug(
+            "github-date api percent_undated=%.2f count=%s include_undated=%s",
+            percent,
+            undated_count,
+            include_undated,
+        )
 
     items: list[JobOut] = [
         JobOut(

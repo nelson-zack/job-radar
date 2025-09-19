@@ -116,6 +116,7 @@
    export DATABASE_URL="postgresql+psycopg://radar:radar@localhost:5432/radar"
    export RADAR_ADMIN_TOKEN="super-secret-token"
    export FILTER_ENTRY_EXCLUSIONS=false
+   export GITHUB_DATE_INFERENCE=false
    ```
 
 2. Initialize the database schema:
@@ -184,6 +185,7 @@ docker run --name radar-postgres -e POSTGRES_USER=radar -e POSTGRES_PASSWORD=rad
 
 - `GET /healthz` – service status.
 - `GET /jobs` – pagination, level/remote/provider/company filters, `skills_any`, `order=posted_at_desc|posted_at_asc|id_desc|id_asc`.
+- Optional `include_undated=true` returns rows with missing `posted_at` (default hidden when `GITHUB_DATE_INFERENCE=true`).
 - `GET /jobs/{id}` – job detail with description and skills.
 - `GET /companies` – company list with job counts.
 - `POST /ingest/curated` – pulls curated GitHub repos (admin token required).
@@ -193,6 +195,7 @@ docker run --name radar-postgres -e POSTGRES_USER=radar -e POSTGRES_PASSWORD=rad
 
 - `PUBLIC_READONLY` – set to `true` to hide client-side write controls.
 - `FILTER_ENTRY_EXCLUSIONS` – set to `true` to drop senior/3+ YOE roles server-side.
+- `GITHUB_DATE_INFERENCE` – set to `true` to infer GitHub curated posted dates and hide undated rows by default.
 
 ## Known Limitations
 
@@ -205,6 +208,7 @@ docker run --name radar-postgres -e POSTGRES_USER=radar -e POSTGRES_PASSWORD=rad
 
 - Use feature branches and keep commits focused; document user-facing changes in this README or a future changelog.
 - Run ingestion locally (`python job_radar.py ...`) after modifying providers or filters, and spot-check results.
-- Run `pytest` (once the suite is in place), `npm run lint`, and `npm run test` before opening a PR.
+- Run `pytest` (once the suite is in place), `npm run lint`, `npm run test`, and `python3 -m unittest discover tests -v` before opening a PR.
+- Tests stub GitHub/git dependencies so no external network calls are required for date inference logic.
 - Keep environment variables out of version control; coordinate secrets via `.env` files ignored by git.
 - Open issues for new providers, integration ideas, or UX polish to keep the roadmap transparent.

@@ -1,5 +1,20 @@
 from __future__ import annotations
 
+import hashlib
+import logging
+import os
+import re
+import time
+from dataclasses import dataclass
+from typing import Dict, Iterable, Iterator, List, Optional, Set, Tuple
+from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlsplit, urlunsplit
+
+import requests
+from bs4 import BeautifulSoup
+from bs4.element import Tag
+
+from radar.core.github_dates import infer_posted_at, log_inference_metrics
+
 """
 Lightweight provider that scrapes curated GitHub repos which track New‑Grad roles.
 
@@ -13,19 +28,8 @@ Sources (curated spreadsheets / READMEs):
   - Also handles embedded HTML tables automatically
 """
 
-from dataclasses import dataclass
-from typing import Iterable, Iterator, List, Dict, Optional, Tuple, Set
-import hashlib
-import logging
-import re
-import time
-from urllib.parse import urlparse
-from urllib.parse import urljoin
-from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
-
-import requests
-from bs4 import BeautifulSoup
-from bs4.element import Tag
+def _flag_github_date_inference() -> bool:
+    return os.getenv("GITHUB_DATE_INFERENCE", "false").lower() == "true"
 
 # Prefer "Apply" links in HTML tags
 def _pick_href_from_tag(tag: Tag) -> Optional[str]:
@@ -506,6 +510,7 @@ def fetch_curated_github_jobs(
     only_remote: bool = True,
     us_only: bool = True,
     provider_label: str = "github",
+    git_ctx: Optional[object] = None,
 ) -> List[Dict]:
     """
     Fetch and normalize jobs from curated GitHub lists.
@@ -523,6 +528,9 @@ def fetch_curated_github_jobs(
     """
     jobs: List[Dict] = []
     seen_urls: Set[str] = set()
+    inference_enabled = _flag_github_date_inference()
+    inferred_dates = 0
+    undated_after = 0
     for src in sources:
         md = _fetch_markdown(src)
         if not md:
@@ -561,19 +569,27 @@ def fetch_curated_github_jobs(
             company_token = slug
             external_id = _hash_external(row_url)
 
-            jobs.append(
-                {
-                    "provider": provider_label,
-                    "external_id": external_id,
-                    "company": comp or company_token,
-                    "company_token": company_token,
-                    "title": title if title else "Software Engineer (New Grad)",
-                    "url": row_url,
-                    "location": location,
-                    "is_remote": bool(is_remote),
-                    "level": level,
-                }
-            )
+            payload = {
+                "provider": provider_label,
+                "external_id": external_id,
+                "company": comp or company_token,
+                "company_token": company_token,
+                "title": title if title else "Software Engineer (New Grad)",
+                "url": row_url,
+                "location": location,
+                "is_remote": bool(is_remote),
+                "level": level,
+            }
+
+            if inference_enabled:
+                inferred_dt = infer_posted_at(external_id, git_ctx) if git_ctx is not None else None
+                if inferred_dt is not None:
+                    payload["posted_at"] = inferred_dt
+                    inferred_dates += 1
+                else:
+                    undated_after += 1
+
+            jobs.append(payload)
             seen_urls.add(row_url)
             produced += 1
 
@@ -589,5 +605,8 @@ def fetch_curated_github_jobs(
         if produced == 0:
             for r in _iter_rows_from_bullets(md):
                 _process_row(r)
+
+    if inference_enabled:
+        log_inference_metrics(log, provider_label, inferred_dates, undated_after, len(jobs))
 
     return jobs
