@@ -185,7 +185,7 @@ docker run --name radar-postgres -e POSTGRES_USER=radar -e POSTGRES_PASSWORD=rad
 ### API endpoints
 
 - `GET /healthz` – service status.
-- `GET /jobs` – pagination, level/remote/provider/company filters, `skills_any`, `order=posted_at_desc|posted_at_asc|id_desc|id_asc`.
+- `GET /jobs` – pagination, level/remote/provider/company filters, `skills_any`, `order=posted_at_desc|posted_at_asc|id_desc|id_asc`. Defaults to supported providers unless `ENABLE_EXPERIMENTAL=true` or an explicit `provider` query is supplied.
 - `GET /jobs/{id}` – job detail with description and skills.
 - `GET /companies` – company list with job counts.
 - `POST /ingest/curated` – pulls curated GitHub repos (admin token required).
@@ -198,6 +198,12 @@ docker run --name radar-postgres -e POSTGRES_USER=radar -e POSTGRES_PASSWORD=rad
 - `FILTER_ENTRY_EXCLUSIONS` – set to `true` to drop senior/3+ YOE roles server-side.
 - `GITHUB_DATE_INFERENCE` – set to `true` to infer posted dates via git history for curated sources.
 - `GITHUB_CURATED_DATE_SCRAPE` – set to `true` to persist dates scraped from curated GitHub lists during ingestion.
+
+### Provider statuses
+
+- Supported: greenhouse
+- Experimental: ashby, workday, lever (enable via `ENABLE_EXPERIMENTAL=true`)
+- Planned: microsoft, coalition
 
 ## Known Limitations
 

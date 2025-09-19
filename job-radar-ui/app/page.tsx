@@ -6,8 +6,10 @@ import { fetchJobs } from '@/lib/api';
 import type { JobsResponse } from '@/lib/types';
 import PageShell from '@/components/layout/PageShell';
 import { ALLOWED_ORDERS_SET, Order } from '@/lib/sort';
+import { getVisibleProviders } from '@/lib/providers';
 
 const PAGE_SIZE_DEFAULT = 25;
+const ENABLE_EXPERIMENTAL = (process.env.ENABLE_EXPERIMENTAL ?? 'false').toLowerCase() === 'true';
 
 function toInt(v: string | string[] | undefined, d: number) {
   const n = Number(v);
@@ -24,6 +26,7 @@ export default async function Home({
 
   const level = sp.level ?? 'any';
   const skills = sp.skills ?? '';
+  const providerFilter = (sp.provider && sp.provider !== 'all') ? sp.provider : 'all';
   const rawOrder = sp.order ?? 'posted_at_desc';
   const order: Order = ALLOWED_ORDERS_SET.has(rawOrder as Order)
     ? (rawOrder as Order)
@@ -36,10 +39,13 @@ export default async function Home({
   const data: JobsResponse = await fetchJobs({
     ...(level !== 'any' ? { level } : {}),
     ...(skills ? { skills_any: skills } : {}),
+    ...(providerFilter !== 'all' ? { provider: providerFilter } : {}),
     limit,
     offset,
     order
   });
+
+  const providerOptions = getVisibleProviders(ENABLE_EXPERIMENTAL);
 
   const totalPages = Math.max(1, Math.ceil((data.total ?? 0) / limit));
 
@@ -51,12 +57,14 @@ export default async function Home({
     });
     if (level !== 'any') params.set('level', level);
     if (skills) params.set('skills', skills);
+    if (providerFilter !== 'all') params.set('provider', providerFilter);
     return `/?${params.toString()}`;
   };
 
   const activeChips: string[] = [];
   if (level !== 'any') activeChips.push(level);
   if (skills) activeChips.push(skills);
+  if (providerFilter !== 'all') activeChips.push(`provider: ${providerFilter}`);
 
   return (
     <PageShell>
@@ -77,6 +85,8 @@ export default async function Home({
         initialLevel={level}
         initialSkills={skills}
         initialOrder={order}
+        initialProvider={providerFilter}
+        providers={providerOptions}
       />
 
       {activeChips.length > 0 && (

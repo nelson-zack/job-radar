@@ -18,3 +18,5 @@ export const IS_PUBLIC_READONLY =
   typeof readonlyCandidate === 'string'
     ? readonlyCandidate.toLowerCase() === 'true'
     : Boolean(readonlyCandidate);
+
+export const ENABLE_EXPERIMENTAL = (process.env.NEXT_PUBLIC_ENABLE_EXPERIMENTAL || process.env.ENABLE_EXPERIMENTAL || "false").toLowerCase() === "true";
