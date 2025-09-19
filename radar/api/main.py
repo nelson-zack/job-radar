@@ -15,6 +15,7 @@ import subprocess, sys
 from radar.providers.github_curated import fetch_curated_github_jobs
 from radar.db.crud import upsert_job
 from radar.db.session import get_session
+import logging
 
 ADMIN_TOKEN = os.getenv("RADAR_ADMIN_TOKEN", "")
 
@@ -25,12 +26,19 @@ def require_admin(x_token: str | None) -> None:
 
 from radar.api.deps import db_session
 from radar.db.models import Job, Company, JobSkill
+from radar.filters.entry import (
+    is_entry_exclusion_enabled,
+    filter_entry_level,
+    title_exclusion_terms,
+    description_exclusion_patterns,
+)
 
 
 # -------------------------
 # FastAPI setup
 # -------------------------
 app = FastAPI(title="Job Radar API", version="0.2.0")
+LOGGER = logging.getLogger(__name__)
 
 # CORS (open for now; tighten before public deploy)
 app.add_middleware(
@@ -145,9 +153,6 @@ async def get_jobs(
         like = f"%{q}%"
         query = query.filter(or_(Job.title.ilike(like), Company.name.ilike(like)))
 
-    # Total before pagination
-    total = query.count()
-
     # Ordering
     if order == "posted_at_desc":
         query = query.order_by(Job.posted_at.desc().nullslast(), Job.id.desc())
@@ -158,7 +163,14 @@ async def get_jobs(
     else:  # id_desc
         query = query.order_by(Job.id.desc())
 
-    rows: list[Job] = query.offset(offset).limit(limit).all()
+    entry_filter_enabled = is_entry_exclusion_enabled()
+
+    if entry_filter_enabled:
+        query = _apply_entry_sql_filters(query)
+        rows, total = _fetch_with_entry_filter(query, offset, limit)
+    else:
+        total = query.count()
+        rows: list[Job] = query.offset(offset).limit(limit).all()
 
     items: list[JobOut] = [
         JobOut(
@@ -175,6 +187,62 @@ async def get_jobs(
     ]
 
     return JobsResponse(items=items, total=total, limit=limit, offset=offset)
+
+
+def _apply_entry_sql_filters(query):
+    title_lower = func.lower(Job.title)
+    for term in title_exclusion_terms():
+        pattern = f"%{term}%"
+        query = query.filter(~title_lower.like(pattern))
+
+    desc_col = func.lower(func.coalesce(Job.description, ""))
+    for pattern in description_exclusion_patterns():
+        query = query.filter(~desc_col.like(pattern))
+
+    return query
+
+
+def _fetch_with_entry_filter(query, offset: int, limit: int):
+    chunk_size = max(limit * 3, 100)
+    start = 0
+    kept_rows: list[Job] = []
+    kept_total = 0
+    excluded = 0
+
+    while True:
+        chunk = query.offset(start).limit(chunk_size).all()
+        if not chunk:
+            break
+
+        for row in chunk:
+            decision, _ = filter_entry_level({
+                "title": row.title,
+                "description": row.description,
+                "description_snippet": getattr(row, "description", None),
+            })
+            if decision == "exclude":
+                excluded += 1
+                continue
+            kept_total += 1
+            if kept_total > offset and len(kept_rows) < limit:
+                kept_rows.append(row)
+
+        if kept_total >= offset + limit and len(kept_rows) >= limit:
+            break
+        if len(chunk) < chunk_size:
+            break
+        start += chunk_size
+
+    if excluded and LOGGER.isEnabledFor(logging.DEBUG):
+        LOGGER.debug(
+            "entry-filter api excluded=%s kept=%s offset=%s limit=%s",
+            excluded,
+            kept_total,
+            offset,
+            limit,
+        )
+
+    return kept_rows, kept_total
 
 
 @app.get("/companies", response_model=List[CompanyOut], tags=["data"])

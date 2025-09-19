@@ -115,6 +115,7 @@
    ```bash
    export DATABASE_URL="postgresql+psycopg://radar:radar@localhost:5432/radar"
    export RADAR_ADMIN_TOKEN="super-secret-token"
+   export FILTER_ENTRY_EXCLUSIONS=false
    ```
 
 2. Initialize the database schema:
@@ -187,6 +188,11 @@ docker run --name radar-postgres -e POSTGRES_USER=radar -e POSTGRES_PASSWORD=rad
 - `GET /companies` – company list with job counts.
 - `POST /ingest/curated` – pulls curated GitHub repos (admin token required).
 - `POST /scan/ats` – runs the CLI ingestion workflow (admin token required).
+
+### Feature flags
+
+- `PUBLIC_READONLY` – set to `true` to hide client-side write controls.
+- `FILTER_ENTRY_EXCLUSIONS` – set to `true` to drop senior/3+ YOE roles server-side.
 
 ## Known Limitations
 
