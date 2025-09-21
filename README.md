@@ -4,7 +4,7 @@ Tracks remote-friendly, early-career software roles by crawling ATS providers, a
 
 ## Live Demo
 
-- UI (Vercel): **PLACEHOLDER_UI_URL**
+- UI (Vercel): **<https://jobradar.zacknelson.dev/>**
 - API (Render): **PLACEHOLDER_API_URL**
 - Public mode: read-only UI backed by the public API; ingest/admin routes stay gated behind the admin token.
 
@@ -66,17 +66,17 @@ Tracks remote-friendly, early-career software roles by crawling ATS providers, a
 
 ## Env Summary
 
-| Scope    | Variable                      | Purpose                                                         |
-| -------- | ----------------------------- | --------------------------------------------------------------- |
-| Backend  | `DATABASE_URL`                | SQLAlchemy connection string (PostgreSQL recommended).          |
-| Backend  | `RADAR_ADMIN_TOKEN`           | Shared secret for admin-only endpoints.                         |
-| Backend  | `FILTER_ENTRY_EXCLUSIONS`     | Enables entry-level filtering heuristics.                       |
-| Backend  | `GITHUB_CURATED_DATE_SCRAPE`  | Persist scraped posted-at timestamps from curated feeds.        |
-| Backend  | `GITHUB_DATE_INFERENCE`       | Infer missing posted-at values from git history.                |
-| Backend  | `ENABLE_EXPERIMENTAL`         | Temporarily allow experimental providers.                       |
-| Backend  | `METRICS_PUBLIC` _(optional)_ | Expose `/metrics/ingestion` without an admin token.             |
-| Frontend | `NEXT_PUBLIC_API_BASE_URL`    | API endpoint consumed by the Next.js app.                       |
-| Frontend | `PUBLIC_READONLY`             | Toggle read-only UX; hides write controls and blocks mutations. |
+| Scope    | Variable                           | Purpose                                                           |
+| -------- | ---------------------------------- | ----------------------------------------------------------------- |
+| Backend  | `DATABASE_URL`                     | SQLAlchemy connection string (PostgreSQL recommended).            |
+| Backend  | `RADAR_ADMIN_TOKEN`                | Shared secret for admin-only endpoints.                           |
+| Backend  | `FILTER_ENTRY_EXCLUSIONS`          | Enables entry-level filtering heuristics.                         |
+| Backend  | `GITHUB_CURATED_DATE_SCRAPE`       | Persist scraped posted-at timestamps from curated feeds.          |
+| Backend  | `GITHUB_DATE_INFERENCE`            | Infer missing posted-at values from git history.                  |
+| Backend  | `ENABLE_EXPERIMENTAL`              | Temporarily allow experimental providers.                         |
+| Backend  | `METRICS_PUBLIC` _(optional)_      | Expose `/metrics/ingestion` without an admin token.               |
+| Frontend | `NEXT_PUBLIC_API_BASE_URL`         | API endpoint consumed by the Next.js app.                         |
+| Frontend | `PUBLIC_READONLY`                  | Toggle read-only UX; hides write controls and blocks mutations.   |
 | Frontend | `NEXT_PUBLIC_SHOW_PROVIDER_FILTER` | Defaults to `true`; set to `false` to hide the Provider selector. |
 
 ```bash
