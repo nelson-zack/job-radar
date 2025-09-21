@@ -81,8 +81,8 @@ Tracks remote-friendly, early-career software roles by crawling ATS providers, a
 ## Screenshots
 
 <p align="center">
-  <img src="docs/assets/ui-list.jpeg" alt="Desktop list view" width="600"/>
-  <img src="docs/assets/ui-mobile.jpeg" alt="Mobile card view" width="250"/>
+  <img src="./docs/assets/ui-list.png" alt="Desktop list view" width="640"/>
+  <img src="./docs/assets/ui-mobile.png" alt="Mobile card view" width="260"/>
 </p>
 
 ## Demo Checklist
