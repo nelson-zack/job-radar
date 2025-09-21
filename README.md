@@ -2,11 +2,29 @@
 
 Tracks remote-friendly, early-career software roles by crawling ATS providers, applying junior filters, and exposing the results through a FastAPI backend, Python CLI, and Next.js dashboard.
 
+## Why It's Built
+
+I wanted a recruiting-ready dataset that actually respects junior candidates, so Job Radar automates the boring parts of job hunting: it curates remote-friendly SWE openings, keeps junior-only guardrails in place, and ships dashboards that make it obvious where to focus outreach each week.
+
 ## Live Demo
 
 - UI (Vercel): **<https://jobradar.zacknelson.dev/>**
-- API (Render): **PLACEHOLDER_API_URL**
+- API (Render): **<https://job-radar.onrender.com>**
 - Public mode: read-only UI backed by the public API; ingest/admin routes stay gated behind the admin token.
+
+## Features
+
+- Filters & search: provider gating, title-level heuristics, undated toggles, and client-side sorting tuned for early-career roles.
+- Analytics: ingestion metrics dashboard plus CSV export for offline analysis and historical tracking.
+- Security: read-only public surface, admin token for mutating endpoints, and provider-scoped ingestion switches.
+- Deployment: production UI on Vercel with a Render-hosted FastAPI backend and managed PostgreSQL for persistence.
+
+## Tech Stack
+
+- Next.js · Tailwind CSS
+- FastAPI · Python
+- PostgreSQL
+- Vercel · Render
 
 ## Supported Providers
 
@@ -77,18 +95,21 @@ Tracks remote-friendly, early-career software roles by crawling ATS providers, a
 | Backend  | `METRICS_PUBLIC` _(optional)_      | Expose `/metrics/ingestion` without an admin token.               |
 | Frontend | `NEXT_PUBLIC_API_BASE_URL`         | API endpoint consumed by the Next.js app.                         |
 | Frontend | `PUBLIC_READONLY`                  | Toggle read-only UX; hides write controls and blocks mutations.   |
-| Frontend | `NEXT_PUBLIC_SHOW_PROVIDER_FILTER` | Defaults to `true`; set to `false` to hide the Provider selector. |
+| Frontend | `NEXT_PUBLIC_ENABLE_EXPERIMENTAL`  | Enables experimental connectors in the UI; off by default.        |
+| Frontend | `NEXT_PUBLIC_SHOW_PROVIDER_FILTER` | _(optional)_ Defaults to `true`; set to `false` to hide the Provider selector. |
 
 ```bash
 # .env.local
 NEXT_PUBLIC_SHOW_PROVIDER_FILTER=false
 ```
 
+Starter templates live in `env.example` (backend) and `job-radar-ui/.env.example` (frontend).
+
 ## Screenshots
 
 <p align="center">
-  <img src="./docs/assets/ui-list.png" alt="Desktop list view" width="800"/>
-  <img src="./docs/assets/ui-mobile.png" alt="Mobile card view" width="260"/>
+  <img src="./docs/assets/ui-list.png" alt="Desktop list view" width="800" style="border-radius:12px;border:1px solid rgba(148,163,184,0.35);box-shadow:0 10px 30px rgba(15,23,42,0.18);" />
+  <img src="./docs/assets/ui-mobile.png" alt="Mobile card view" width="260" style="border-radius:16px;border:1px solid rgba(148,163,184,0.35);box-shadow:0 10px 30px rgba(15,23,42,0.18);" />
 </p>
 
 ## Demo Checklist

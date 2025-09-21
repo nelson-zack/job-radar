@@ -1,6 +1,9 @@
 export function useRouter() {
   return {
-    push: (_url: string) => {}
+    push: (url?: string) => {
+      void url;
+      return undefined;
+    }
   };
 }
 
