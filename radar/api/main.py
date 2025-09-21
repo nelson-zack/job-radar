@@ -15,6 +15,8 @@ import subprocess, sys
 from radar.providers.github_curated import fetch_curated_github_jobs
 from radar.db.crud import upsert_job
 from radar.db.session import get_session
+from radar.core.providers import visible_providers
+import logging
 
 ADMIN_TOKEN = os.getenv("RADAR_ADMIN_TOKEN", "")
 
@@ -25,12 +27,27 @@ def require_admin(x_token: str | None) -> None:
 
 from radar.api.deps import db_session
 from radar.db.models import Job, Company, JobSkill
+from radar.filters.entry import (
+    is_entry_exclusion_enabled,
+    filter_entry_level,
+    title_exclusion_terms,
+    description_exclusion_patterns,
+)
+from sqlalchemy import case
+
+
+def github_date_inference_enabled() -> bool:
+    return os.getenv("GITHUB_DATE_INFERENCE", "false").lower() == "true"
 
 
 # -------------------------
 # FastAPI setup
 # -------------------------
 app = FastAPI(title="Job Radar API", version="0.2.0")
+LOGGER = logging.getLogger(__name__)
+ENABLE_EXPERIMENTAL = os.getenv("ENABLE_EXPERIMENTAL", "false").lower() == "true"
+METRICS_PUBLIC = os.getenv("METRICS_PUBLIC", "false").lower() == "true"
+LAST_INGEST_AT: datetime | None = None
 
 # CORS (open for now; tighten before public deploy)
 app.add_middleware(
@@ -134,8 +151,13 @@ async def get_jobs(
         query = query.filter(Job.level == level)
     if remote is not None:
         query = query.filter(Job.is_remote.is_(remote))
+    if provider and provider.lower() == 'all':
+        provider = None
     if provider:
         query = query.filter(Job.provider == provider)
+    else:
+        allowed = visible_providers(ENABLE_EXPERIMENTAL)
+        query = query.filter(Job.provider.in_(allowed))
     if company:
         query = query.filter(Company.slug == company)
     if days is not None and days > 0:
@@ -144,9 +166,6 @@ async def get_jobs(
     if q:
         like = f"%{q}%"
         query = query.filter(or_(Job.title.ilike(like), Company.name.ilike(like)))
-
-    # Total before pagination
-    total = query.count()
 
     # Ordering
     if order == "posted_at_desc":
@@ -158,7 +177,14 @@ async def get_jobs(
     else:  # id_desc
         query = query.order_by(Job.id.desc())
 
-    rows: list[Job] = query.offset(offset).limit(limit).all()
+    entry_filter_enabled = is_entry_exclusion_enabled()
+
+    if entry_filter_enabled:
+        query = _apply_entry_sql_filters(query)
+        rows, total = _fetch_with_entry_filter(query, offset, limit)
+    else:
+        total = query.count()
+        rows: list[Job] = query.offset(offset).limit(limit).all()
 
     items: list[JobOut] = [
         JobOut(
@@ -175,6 +201,62 @@ async def get_jobs(
     ]
 
     return JobsResponse(items=items, total=total, limit=limit, offset=offset)
+
+
+def _apply_entry_sql_filters(query):
+    title_lower = func.lower(Job.title)
+    for term in title_exclusion_terms():
+        pattern = f"%{term}%"
+        query = query.filter(~title_lower.like(pattern))
+
+    desc_col = func.lower(func.coalesce(Job.description, ""))
+    for pattern in description_exclusion_patterns():
+        query = query.filter(~desc_col.like(pattern))
+
+    return query
+
+
+def _fetch_with_entry_filter(query, offset: int, limit: int):
+    chunk_size = max(limit * 3, 100)
+    start = 0
+    kept_rows: list[Job] = []
+    kept_total = 0
+    excluded = 0
+
+    while True:
+        chunk = query.offset(start).limit(chunk_size).all()
+        if not chunk:
+            break
+
+        for row in chunk:
+            decision, _ = filter_entry_level({
+                "title": row.title,
+                "description": row.description,
+                "description_snippet": getattr(row, "description", None),
+            })
+            if decision == "exclude":
+                excluded += 1
+                continue
+            kept_total += 1
+            if kept_total > offset and len(kept_rows) < limit:
+                kept_rows.append(row)
+
+        if kept_total >= offset + limit and len(kept_rows) >= limit:
+            break
+        if len(chunk) < chunk_size:
+            break
+        start += chunk_size
+
+    if excluded and LOGGER.isEnabledFor(logging.DEBUG):
+        LOGGER.debug(
+            "entry-filter api excluded=%s kept=%s offset=%s limit=%s",
+            excluded,
+            kept_total,
+            offset,
+            limit,
+        )
+
+    return kept_rows, kept_total
 
 
 @app.get("/companies", response_model=List[CompanyOut], tags=["data"])
@@ -225,6 +307,8 @@ async def get_job_detail(job_id: int, session: Session = Depends(db_session)):
 def ingest_curated(x_token: str | None = Header(default=None)):
     require_admin(x_token)
     rows = fetch_curated_github_jobs()
+    global LAST_INGEST_AT
+    LAST_INGEST_AT = datetime.utcnow()
     saved = 0
     with get_session() as s:
         session_obj: Session = cast(Session, s)
@@ -239,6 +323,8 @@ def scan_ats(x_token: str | None = Header(default=None)):
     require_admin(x_token)
     # Run the existing CLI using the current Python interpreter so we stay in this venv.
     script_path = os.path.join(os.getcwd(), "job_radar.py")
+    global LAST_INGEST_AT
+    LAST_INGEST_AT = datetime.utcnow()
     try:
         proc = subprocess.run(
             [sys.executable, script_path, "companies.json", "--profile", "apply-now", "--save"],
@@ -262,3 +348,114 @@ async def debug_db(session: Session = Depends(db_session)):
         return {"ok": True}
     except Exception as e:  # pragma: no cover
         return {"ok": False, "error": str(e)}
+
+
+@app.post("/admin/backfill-posted-at", tags=["admin"])
+def backfill_posted_at(x_token: str | None = Header(default=None)):
+    require_admin(x_token)
+
+    scrape_jobs = fetch_curated_github_jobs(
+        enable_scrape=True,
+        enable_inference=github_date_inference_enabled(),
+    )
+    lookup = {
+        job.get("external_id"): job
+        for job in scrape_jobs
+        if job.get("external_id") and job.get("posted_at") is not None
+    }
+
+    updated = 0
+    missing = 0
+    total = 0
+
+    with get_session() as session:
+        rows: list[Job] = (
+            session.query(Job)
+            .filter(Job.provider == "github")
+            .filter(Job.posted_at == None)  # noqa: E711
+            .all()
+        )
+
+        for row in rows:
+            total += 1
+            scraped = lookup.get(row.external_id)
+            if scraped and scraped.get("posted_at"):
+                row.posted_at = scraped["posted_at"]
+                updated += 1
+            else:
+                missing += 1
+
+        session.commit()
+
+    return {
+        "provider": "github",
+        "checked": total,
+        "updated": updated,
+        "missing": missing,
+    }
+
+
+def compute_ingestion_metrics(session: Session) -> dict:
+    total = session.query(func.count(Job.id)).scalar() or 0
+    if total == 0:
+        return {
+            "total": 0,
+            "kept": 0,
+            "excluded_by_title": 0,
+            "excluded_by_yoe": 0,
+            "percent_undated": 0.0,
+            "by_provider": {},
+        }
+
+    undated = (
+        session.query(func.count(Job.id))
+        .filter(Job.posted_at.is_(None))
+        .scalar()
+        or 0
+    )
+
+    excluded_title = 0
+    excluded_yoe = 0
+    for title, description in session.query(Job.title, Job.description).all():
+        decision, reason = filter_entry_level({"title": title, "description": description})
+        if decision == "exclude" and reason == "title-senior-term":
+            excluded_title += 1
+        elif decision == "exclude" and reason == "description-3plus-years":
+            excluded_yoe += 1
+
+    provider_rows = (
+        session.query(
+            Job.provider,
+            func.count(Job.id),
+            func.sum(case((Job.posted_at.is_(None), 1), else_=0)),
+        )
+        .group_by(Job.provider)
+        .all()
+    )
+    by_provider = {
+        provider: {"total": int(total_count or 0), "undated": int(undated_count or 0)}
+        for provider, total_count, undated_count in provider_rows
+    }
+
+    percent_undated = float(undated) / float(total) * 100 if total else 0.0
+
+    return {
+        "total": int(total),
+        "kept": int(total),
+        "excluded_by_title": int(excluded_title),
+        "excluded_by_yoe": int(excluded_yoe),
+        "percent_undated": percent_undated,
+        "by_provider": by_provider,
+    }
+
+
+@app.get("/metrics/ingestion", tags=["metrics"])
+def get_metrics_ingestion(
+    x_token: str | None = Header(default=None),
+    session: Session = Depends(db_session),
+):
+    if not METRICS_PUBLIC:
+        require_admin(x_token)
+    metrics = compute_ingestion_metrics(session)
+    metrics["last_ingest_at"] = LAST_INGEST_AT.isoformat() if LAST_INGEST_AT else None
+    return metrics

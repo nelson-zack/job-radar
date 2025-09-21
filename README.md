@@ -1,203 +1,92 @@
 # Job Radar
 
-**Current version:** 0.4.0 (Phase 3 kickoff)
+Tracks remote-friendly, early-career software roles by crawling ATS providers, applying junior filters, and exposing the results through a FastAPI backend, Python CLI, and Next.js dashboard.
 
-> Surfaces remote-friendly early-career software roles by crawling applicant tracking systems (ATS), normalizing the data, and exposing the results via CLI, API, and a web dashboard.
+## Live Demo
 
-## Contents
+- UI (Vercel): **PLACEHOLDER_UI_URL**
+- API (Render): **PLACEHOLDER_API_URL**
+- Public mode: read-only UI backed by the public API; ingest/admin routes stay gated behind the admin token.
 
-- [Overview](#overview)
-- [Architecture at a Glance](#architecture-at-a-glance)
-- [Progress Snapshot](#progress-snapshot)
-- [Roadmap](#roadmap)
-- [Quality & Engineering Practices](#quality--engineering-practices)
-- [Getting Started](#getting-started)
-- [Usage Reference](#usage-reference)
-- [Known Limitations](#known-limitations)
-- [Development Workflow](#development-workflow)
+## Supported Providers
 
-## Overview
+- ✅ **Greenhouse** – production-ready connector and default source.
+- 🧪 **Ashby, Lever, Workday, Workable** – experimental connectors disabled by default; enable privately with `ENABLE_EXPERIMENTAL=true` while testing.
 
-- Crawls Greenhouse, Lever, Workday, Ashby, Workable, and curated GitHub sources to build a deduplicated job feed.
-- Applies junior-friendly, remote-first filtering with skill scoring and recency controls to highlight actionable roles.
-- Delivers results through a Python CLI, FastAPI service, and a Next.js UI that supports filtering, pagination, and admin actions.
+## Data Quality
 
-## Architecture at a Glance
+- **Entry-level exclusion**: `FILTER_ENTRY_EXCLUSIONS` applies title keywords plus ≥3-year experience checks shared between ingestion and the API.
+- **Dates**: `GITHUB_CURATED_DATE_SCRAPE` captures explicit posted dates from curated sources; `GITHUB_DATE_INFERENCE` infers missing dates from git history.
+- **Undated jobs**: clients can opt back in via `include_undated=true` when calling `GET /jobs`.
 
-- **CLI & ingestion**: `job_radar.py` orchestrates provider crawlers, description enrichment, filtering, and deduplication.
-- **Provider registry**: modular connectors live under `radar/providers`, making it straightforward to add or tune ATS integrations.
-- **Persistence**: SQLAlchemy models (`Company`, `Job`, `JobSkill`, `CrawlRun`) target PostgreSQL (Docker) with SQLite support for quick local runs.
-- **API**: FastAPI entrypoint (`radar/api/main.py`) exposes health probes, job and company endpoints, and admin ingestion triggers.
-- **Web UI**: Next 15 application (`job-radar-ui`) fetches from the API, offers client filter controls, and includes an admin page for curated imports.
-- **Config & data**: `companies.json`, `config/default_skills.json`, and environment variables drive provider settings, defaults, and admin security.
+## Known Limitations
 
-## Progress Snapshot
+- Non-Greenhouse connectors still require polishing and verified credentials before public launch.
+- Curated feeds may return undated roles when the upstream list does not expose a stable posted-at field.
 
-### Completed
+## Getting Started (Local)
 
-- Provider normalization across Greenhouse, Lever, Workday, Ashby, and Workable with shared schema guarantees.
-- Junior/remote filtering, recency gates, and skill scoring with CSV/JSON export support.
-- Persistence layer and FastAPI service with typed responses, admin token protection, and ingestion endpoints.
-- Curated GitHub ingestion flow wired into both the CLI and the admin endpoint.
-- Next.js job browser foundation with server component data fetching, filter bar, pagination, and company/job tables.
-
-### In Flight
-
-- Polishing the web UI experience (empty/error states, loading feedback, shared TypeScript types to avoid duplication).
-- Hardening admin actions by improving API error messaging and token-handling in the Next.js route.
-- Capturing ingestion metrics and success diagnostics to surface in API responses and the UI.
-
-### Up Next
-
-- Expand exports and integrations (CSV presets, optional Slack/Sheets delivery, richer saved views).
-- Scheduling and containerization for automated daily runs (cron wrappers, Docker Compose profiles).
-- Automated QA: pytest coverage for provider adapters/API, contract tests for UI fetches, and CI wiring.
-
-## Roadmap
-
-| Phase | Status      | Focus                                       | Key Deliverables                                                     |
-| ----- | ----------- | ------------------------------------------- | -------------------------------------------------------------------- |
-| 0     | Done        | Baseline setup & repo hygiene               | Version control, company list, documentation shell                   |
-| 1     | Done        | Provider normalization & filtering accuracy | Modular connectors, junior/remote heuristics, recency/skills filters |
-| 2     | Done        | Persistence & minimal API                   | SQLAlchemy models, FastAPI service, admin token gating               |
-| 2.5   | Done        | Curated GitHub ingestion                    | Import pipeline for remote new-grad lists, CLI + API wiring          |
-| 3     | In progress | Web experience & export polish              | Next.js UI refinements, CSV customization, admin actions UX          |
-| 4     | Planned     | Scheduling & containerization               | Docker image(s), Compose stack, cron/task automation                 |
-| 5     | Planned     | Integrations & notifications                | Slack/email hooks, Google Sheets sync, webhook surface               |
-| 6     | Planned     | Performance & resilience                    | Provider rate-limit handling, caching, observability                 |
-| 7     | Planned     | Automation & QA                             | Test suite coverage, CI/CD, coding standards enforcement             |
-
-## Quality & Engineering Practices
-
-- **Strengths**: modular provider registry with shared normalization, typed FastAPI responses with dependency-injected sessions, and a Next.js UI that leans on server components, accessible table markup, and centralized env handling.
-- **Currently tightening**: align shared TypeScript models (`lib/types` vs `lib/api`), add resilient error and loading states in the UI, and document environment variables (`DATABASE_URL`, `RADAR_ADMIN_TOKEN`, `NEXT_PUBLIC_API_URL`).
-- **Next quality investments**: expand pytest coverage (providers, filters, API contracts), add regression tests for CLI flags, wire `npm run lint` and backend checks into CI, and introduce structured logging/metrics for ingestion runs.
-
-## Getting Started
-
-### Prerequisites
-
-- Python 3.10+
-- Node.js 18+ (for the Next.js UI)
-- Docker (recommended for local PostgreSQL) or access to a PostgreSQL instance
-
-### Backend & CLI
-
-1. Create and activate a virtual environment:
+1. **Backend & CLI**
 
    ```bash
    python3 -m venv .venv
    source .venv/bin/activate
-   ```
-
-2. Install dependencies:
-
-   ```bash
    pip install -r requirements.txt
-   ```
-
-3. Run your first scan (junior-friendly filter enabled):
-
-   ```bash
-   python job_radar.py companies.json --junior-only
-   ```
-
-4. Relaxed junior mode and CSV export example:
-
-   ```bash
-   python job_radar.py companies.json --junior-only --relax --csv out.csv
-   ```
-
-### API Service
-
-1. Configure environment (example `.env` snippet):
-
-   ```bash
-   export DATABASE_URL="postgresql+psycopg://radar:radar@localhost:5432/radar"
-   export RADAR_ADMIN_TOKEN="super-secret-token"
-   ```
-
-2. Initialize the database schema:
-
-   ```bash
-   python scripts/init_db.py
-   ```
-
-3. Launch the API:
-
-   ```bash
    uvicorn radar.api.main:app --reload
    ```
 
-### Web UI (Next.js)
-
-1. Install dependencies:
+2. **Web UI**
 
    ```bash
    cd job-radar-ui
    npm install
+   NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 PUBLIC_READONLY=false npm run dev
    ```
 
-2. Create `.env.local` with:
+3. **Optional Docker** – Use when you need a local PostgreSQL instance or to mirror deployment infrastructure:
 
    ```bash
-   NEXT_PUBLIC_API_URL=http://localhost:8000
-   RADAR_ADMIN_TOKEN=super-secret-token
+   docker run --name radar-postgres -e POSTGRES_USER=radar -e POSTGRES_PASSWORD=radar \
+     -e POSTGRES_DB=radar -p 5432:5432 -d postgres:16
    ```
 
-3. Start the dev server:
+   (Skip Docker for day-to-day CLI/API iteration; SQLite works out of the box.)
 
-   ```bash
-   npm run dev
-   ```
+## Security
 
-4. Visit `http://localhost:3000` for the job browser and `/admin` for admin actions.
+- Set `PUBLIC_READONLY=true` to hide client write controls and block browser-side mutating calls.
+- Admin endpoints (`/ingest/curated`, `/scan/ats`, `/admin/backfill-posted-at`, `/metrics/ingestion` when `METRICS_PUBLIC=false`) require an `x-token` header that matches `RADAR_ADMIN_TOKEN`.
 
-### Database (PostgreSQL via Docker)
+## Quick API Reference
 
-```bash
-docker run --name radar-postgres -e POSTGRES_USER=radar -e POSTGRES_PASSWORD=radar \
-  -e POSTGRES_DB=radar -p 5432:5432 -d postgres:16
-```
+- `GET /jobs` – query params: `limit`, `offset`, `provider`, `order`, `include_undated`; respects junior filters and provider gating.
+- `POST /ingest/curated` – triggers curated GitHub import (admin only; `x-token`).
+- `POST /admin/backfill-posted-at` – fills missing GitHub posted dates (admin only; `x-token`).
+- `GET /metrics/ingestion` – live ingestion metrics; public only when `METRICS_PUBLIC=true`.
 
-## Usage Reference
+## Env Summary
 
-### CLI filters & flags
+| Scope    | Variable                      | Purpose                                                         |
+| -------- | ----------------------------- | --------------------------------------------------------------- |
+| Backend  | `DATABASE_URL`                | SQLAlchemy connection string (PostgreSQL recommended).          |
+| Backend  | `RADAR_ADMIN_TOKEN`           | Shared secret for admin-only endpoints.                         |
+| Backend  | `FILTER_ENTRY_EXCLUSIONS`     | Enables entry-level filtering heuristics.                       |
+| Backend  | `GITHUB_CURATED_DATE_SCRAPE`  | Persist scraped posted-at timestamps from curated feeds.        |
+| Backend  | `GITHUB_DATE_INFERENCE`       | Infer missing posted-at values from git history.                |
+| Backend  | `ENABLE_EXPERIMENTAL`         | Temporarily allow experimental providers.                       |
+| Backend  | `METRICS_PUBLIC` _(optional)_ | Expose `/metrics/ingestion` without an admin token.             |
+| Frontend | `NEXT_PUBLIC_API_BASE_URL`    | API endpoint consumed by the Next.js app.                       |
+| Frontend | `PUBLIC_READONLY`             | Toggle read-only UX; hides write controls and blocks mutations. |
 
-- `--junior-only` limits to explicit junior/new-grad/entry-level titles.
-- `--junior-only --relax` accepts early-career signals (<=3 years experience) found in descriptions.
-- `--us-remote-only` and `--exclude-hybrid` enforce fully remote US-friendly roles.
-- `--recent-days N` keeps jobs posted in the last `N` days (`--require-date` drops undated roles).
-- `--skills-any "python,react"` and `--skills-all "python,sql"` apply soft scoring; add `--skills-hard` to enforce as filters.
-- `--profile apply-now` sets a daily run preset (US remote, last 14 days, relaxed junior mode).
-- `--profile research` broadens recency and skill filters for exploration.
+## Screenshots
 
-### CSV and output customization
+<p align="center">
+  <img src="./docs/assets/ui-list.png" alt="Desktop list view" width="800"/>
+  <img src="./docs/assets/ui-mobile.png" alt="Mobile card view" width="260"/>
+</p>
 
-- Use `--csv-columns` to choose columns and order (defaults include `rank`, `company`, `title`, `provider`, `posted_at`, `skill_score`, `url`).
-- Global description fetch caps: `RADAR_DESC_CAP`, `RADAR_DESC_TIMEOUT`, `RADAR_DESC_MAX_CHARS`.
-- Per-provider description caps: `RADAR_DESC_CAP_GREENHOUSE`, `RADAR_DESC_CAP_LEVER`, `RADAR_DESC_CAP_WORKDAY`, `RADAR_DESC_CAP_ASHBY`, `RADAR_DESC_CAP_WORKABLE`.
+## Demo Checklist
 
-### API endpoints
-
-- `GET /healthz` – service status.
-- `GET /jobs` – pagination, level/remote/provider/company filters, `skills_any`, `order=posted_at_desc|posted_at_asc|id_desc|id_asc`.
-- `GET /jobs/{id}` – job detail with description and skills.
-- `GET /companies` – company list with job counts.
-- `POST /ingest/curated` – pulls curated GitHub repos (admin token required).
-- `POST /scan/ats` – runs the CLI ingestion workflow (admin token required).
-
-## Known Limitations
-
-- Ashby and Workable connectors are wired but still rely on accurate tokens and may produce sparse results.
-- Some ATS boards render via heavy client-side JavaScript, which the current requests-based fetcher does not execute.
-- Workday tenants can rate-limit or vary JSON payloads; large Workday lists may require throttling or tailored parsing.
-- Workable tenants that render postings client-side are not supported without a headless browser approach.
-
-## Development Workflow
-
-- Use feature branches and keep commits focused; document user-facing changes in this README or a future changelog.
-- Run ingestion locally (`python job_radar.py ...`) after modifying providers or filters, and spot-check results.
-- Run `pytest` (once the suite is in place) and `npm run lint` before opening a PR.
-- Keep environment variables out of version control; coordinate secrets via `.env` files ignored by git.
-- Open issues for new providers, integration ideas, or UX polish to keep the roadmap transparent.
+1. Load the Vercel UI, confirm remote junior roles render with default filters.
+2. Toggle provider filter and confirm Greenhouse-only results remain stable.
+3. Hit `/metrics/ingestion` via curl; show authenticated vs. public responses based on `METRICS_PUBLIC`.

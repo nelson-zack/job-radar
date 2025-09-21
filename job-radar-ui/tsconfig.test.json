@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": ".test-dist",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "target": "ES2019",
+    "jsx": "react-jsx",
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "isolatedModules": false
+  },
+  "include": [
+    "lib/**/*.ts",
+    "utils/**/*.ts",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "tests/**/*.test.ts"
+  ],
+  "exclude": ["node_modules", ".next", ".test-dist"]
+}

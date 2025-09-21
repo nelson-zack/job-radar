@@ -4,8 +4,15 @@ import os, json, re
 import requests
 from bs4 import BeautifulSoup
 
+import logging
+
 from radar.core.normalize import NormalizedJob, normalize_title, normalize_company, canonical_location, infer_level
 from radar.filters.rules import JUNIOR_POSITIVE, SENIOR_BLOCK, looks_like_engineering
+from radar.filters.entry import (
+    filter_entry_level,
+    is_entry_exclusion_enabled,
+    log_entry_filter_metrics,
+)
 
 # Description fetching caps (can be overridden via environment variables)
 # Per-provider cap: prefer RADAR_DESC_CAP_GREENHOUSE, else fallback to RADAR_DESC_CAP
@@ -81,6 +88,7 @@ def _parse_date_from_jsonld(html: str) -> str | None:
 
 class GreenhouseProvider:
     name = "greenhouse"
+    _logger = logging.getLogger(__name__)
 
     def fetch(self, company: dict) -> Iterable[NormalizedJob]:
         """Fetch jobs for a Greenhouse company.
@@ -100,6 +108,10 @@ class GreenhouseProvider:
             return []
 
         jobs: List[NormalizedJob] = []
+        kept_counter = 0
+        excluded_counter = 0
+        entry_filter_enabled = is_entry_exclusion_enabled()
+        debug_entry = os.getenv("RADAR_DEBUG_ENTRY_FILTER", "0") == "1"
         desc_count = 0
         # Sort & group to spend snippet budget on junior-leaning SWE roles first
         raw_jobs = list(data.get("jobs", []))
@@ -178,7 +190,7 @@ class GreenhouseProvider:
                     except Exception:
                         posted_at = None
 
-            jobs.append(NormalizedJob(
+            job = NormalizedJob(
                 title=title,
                 company=normalize_company(comp_name),
                 url=url,
@@ -187,10 +199,31 @@ class GreenhouseProvider:
                 level=infer_level(title),
                 description_snippet=description_snippet,
                 posted_at=posted_at,
-            ))
+            )
+
+            decision, reason = filter_entry_level({
+                "title": job.title,
+                "description": description_snippet,
+            })
+            if entry_filter_enabled and decision == "exclude":
+                excluded_counter += 1
+                if debug_entry:
+                    self._logger.debug(
+                        "entry-filter exclude provider=%s title=%s reason=%s url=%s",
+                        self.name,
+                        job.title,
+                        reason,
+                        job.url,
+                    )
+                continue
+
+            kept_counter += 1
+            jobs.append(job)
         if os.getenv("RADAR_DEBUG_GREENHOUSE"):
             try:
                 print(f"[greenhouse] snippet fetch: total={desc_count} cap={DESC_CAP} junior_prefetch={jr_prefetch_count}")
             except Exception:
                 pass
+        if entry_filter_enabled:
+            log_entry_filter_metrics(self.name, kept_counter, excluded_counter)
         return jobs
