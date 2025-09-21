@@ -77,6 +77,12 @@ Tracks remote-friendly, early-career software roles by crawling ATS providers, a
 | Backend  | `METRICS_PUBLIC` _(optional)_ | Expose `/metrics/ingestion` without an admin token.             |
 | Frontend | `NEXT_PUBLIC_API_BASE_URL`    | API endpoint consumed by the Next.js app.                       |
 | Frontend | `PUBLIC_READONLY`             | Toggle read-only UX; hides write controls and blocks mutations. |
+| Frontend | `NEXT_PUBLIC_SHOW_PROVIDER_FILTER` | Defaults to `true`; set to `false` to hide the Provider selector. |
+
+```bash
+# .env.local
+NEXT_PUBLIC_SHOW_PROVIDER_FILTER=false
+```
 
 ## Screenshots
 

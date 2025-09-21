@@ -9,7 +9,15 @@
     "jsx": "react-jsx",
     "declaration": false,
     "emitDeclarationOnly": false,
-    "isolatedModules": false
+    "isolatedModules": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/utils/env": ["tests/stubs/utils-env"],
+      "@/lib/providers": ["lib/providers"],
+      "@/lib/sort": ["lib/sort"],
+      "next/navigation": ["tests/stubs/next-navigation"],
+      "@/*": ["./*"]
+    }
   },
   "include": [
     "lib/**/*.ts",

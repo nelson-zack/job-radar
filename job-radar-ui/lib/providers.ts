@@ -23,3 +23,8 @@ export function getVisibleProviders(enableExperimental: boolean = ENABLE_EXPERIM
   }
   return Array.from(new Set(base));
 }
+
+export function showProviderFilter(): boolean {
+  const v = process.env.NEXT_PUBLIC_SHOW_PROVIDER_FILTER;
+  return v === undefined || v.toLowerCase() !== 'false';
+}

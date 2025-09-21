@@ -1,6 +1,7 @@
 'use client';
 
 import { ENABLE_EXPERIMENTAL } from '@/utils/env';
+import { showProviderFilter } from '@/lib/providers';
 import { useState } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Button } from './ui/Button';
@@ -26,7 +27,8 @@ export default function FiltersBar({
   providers = ['all', 'greenhouse']
 }: Props) {
   const providerList = providers && providers.length ? providers : ['all', 'greenhouse'];
-  const [provider, setProvider] = useState(initialProvider);
+  const providerFilterEnabled = showProviderFilter();
+  const [provider, setProvider] = useState(providerFilterEnabled ? initialProvider : 'all');
   let visibleProviders = providerList.filter((name) =>
     ENABLE_EXPERIMENTAL || name === 'all' || name === 'greenhouse'
   );
@@ -55,8 +57,12 @@ export default function FiltersBar({
     } else {
       params.set('level', normalizedLevel);
     }
-    if (provider && provider !== 'all') params.set('provider', provider);
-    else params.delete('provider');
+    const providerValue = providerFilterEnabled ? provider : 'all';
+    if (providerFilterEnabled && providerValue && providerValue !== 'all') {
+      params.set('provider', providerValue);
+    } else {
+      params.delete('provider');
+    }
     const safeOrder: Order = ALLOWED_ORDERS_SET.has(order)
       ? order
       : 'posted_at_desc';
@@ -128,22 +134,24 @@ export default function FiltersBar({
             <option value='posted_at_asc'>Oldest</option>
           </Select>
         </div>
-        <div className='flex h-full flex-col justify-end gap-2'>
-          <label className='block text-[0.7rem] font-semibold tracking-wide uppercase text-[var(--muted)]'>
-            Provider
-          </label>
-          <Select
-            value={provider}
-            onChange={(e) => setProvider(e.target.value)}
-            className='w-full'
-          >
-            {visibleProviders.map((name) => (
-              <option key={name} value={name}>
-                {name === 'all' ? 'All providers' : name}
-              </option>
-            ))}
-          </Select>
-        </div>
+        {providerFilterEnabled && (
+          <div className='flex h-full flex-col justify-end gap-2'>
+            <label className='block text-[0.7rem] font-semibold tracking-wide uppercase text-[var(--muted)]'>
+              Provider
+            </label>
+            <Select
+              value={provider}
+              onChange={(e) => setProvider(e.target.value)}
+              className='w-full'
+            >
+              {visibleProviders.map((name) => (
+                <option key={name} value={name}>
+                  {name === 'all' ? 'All providers' : name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
 
 
         <div className='flex h-full items-end justify-end gap-2 self-stretch sm:gap-3'>
