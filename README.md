@@ -80,8 +80,10 @@ Tracks remote-friendly, early-career software roles by crawling ATS providers, a
 
 ## Screenshots
 
-- ![Desktop list view](docs/assets/ui-list.png 'Desktop screenshot')
-- ![Mobile card view](docs/assets/ui-mobile.png 'Mobile screenshot')
+<p align="center">
+  <img src="docs/assets/ui-list.jpeg" alt="Desktop list view" width="600"/>
+  <img src="docs/assets/ui-mobile.jpeg" alt="Mobile card view" width="250"/>
+</p>
 
 ## Demo Checklist
 
