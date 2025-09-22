@@ -14,7 +14,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npm run test:build && node --test .test-dist/tests/**/*.test.js",
+    "test": "npm run test:build && (cd .test-dist && node --test)",
     "test:build": "tsc -p tsconfig.test.json"
   },
   "dependencies": {
