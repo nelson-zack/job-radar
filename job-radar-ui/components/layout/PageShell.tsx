@@ -1,6 +1,7 @@
 // components/layout/PageShell.tsx
 
 import React from 'react';
+import ErrorToast from '../ui/ErrorToast';
 
 type Props = { children: React.ReactNode };
 
@@ -15,6 +16,7 @@ export default function PageShell({ children }: Props) {
       <div className='relative mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-10'>
         {children}
       </div>
+      <ErrorToast />
     </div>
   );
 }

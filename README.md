@@ -92,11 +92,13 @@ I wanted a recruiting-ready dataset that actually respects junior candidates, so
 | Backend  | `GITHUB_CURATED_DATE_SCRAPE`       | Persist scraped posted-at timestamps from curated feeds.          |
 | Backend  | `GITHUB_DATE_INFERENCE`            | Infer missing posted-at values from git history.                  |
 | Backend  | `ENABLE_EXPERIMENTAL`              | Temporarily allow experimental providers.                         |
+| Backend  | `CORS_ALLOW_ORIGINS` _(optional)_  | Comma-separated origins allowed to hit the API (defaults to prod + localhost). |
 | Backend  | `METRICS_PUBLIC` _(optional)_      | Expose `/metrics/ingestion` without an admin token.               |
 | Frontend | `NEXT_PUBLIC_API_BASE_URL`         | API endpoint consumed by the Next.js app.                         |
 | Frontend | `PUBLIC_READONLY`                  | Toggle read-only UX; hides write controls and blocks mutations.   |
 | Frontend | `NEXT_PUBLIC_ENABLE_EXPERIMENTAL`  | Enables experimental connectors in the UI; off by default.        |
 | Frontend | `NEXT_PUBLIC_SHOW_PROVIDER_FILTER` | _(optional)_ Defaults to `true`; set to `false` to hide the Provider selector. |
+| Frontend | `NEXT_PUBLIC_FETCH_TIMEOUT_MS`     | _(optional)_ Override the client fetch timeout (default 15000ms). |
 
 ```bash
 # .env.local

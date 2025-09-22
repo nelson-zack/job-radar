@@ -13,3 +13,4 @@ radar.dbscripts/test_github_curated.py
 scripts/ingest_github_curated.py
 radar.db
 scripts/test_github_curated.py
+.vercel

@@ -49,10 +49,27 @@ ENABLE_EXPERIMENTAL = os.getenv("ENABLE_EXPERIMENTAL", "false").lower() == "true
 METRICS_PUBLIC = os.getenv("METRICS_PUBLIC", "false").lower() == "true"
 LAST_INGEST_AT: datetime | None = None
 
-# CORS (open for now; tighten before public deploy)
+
+def _load_cors_allow_origins() -> list[str]:
+    raw = os.getenv("CORS_ALLOW_ORIGINS")
+    if raw:
+        origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
+        if origins:
+            return origins
+    # Default: production UI + common local dev hosts
+    return [
+        "https://jobradar.zacknelson.dev",
+        "https://job-radar.vercel.app",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
+
+CORS_ALLOW_ORIGINS = _load_cors_allow_origins()
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ALLOW_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
