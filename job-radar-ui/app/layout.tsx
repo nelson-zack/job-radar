@@ -16,7 +16,32 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: 'Job Radar',
-  description: 'Search dev jobs from curated lists and ATS feeds.'
+  description: 'Search dev jobs from curated lists and ATS feeds.',
+  icons: {
+    icon: '/favicon.png',
+    shortcut: '/favicon.png',
+    apple: '/favicon.png'
+  },
+  openGraph: {
+    title: 'Job Radar',
+    description: 'Search dev jobs from curated lists and ATS feeds.',
+    url: 'https://jobradar.zacknelson.dev',
+    siteName: 'Job Radar',
+    images: [
+      {
+        url: '/og-preview.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Job Radar dashboard preview'
+      }
+    ]
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Job Radar',
+    description: 'Search dev jobs from curated lists and ATS feeds.',
+    images: ['/og-preview.jpg']
+  }
 };
 
 export default function RootLayout({
