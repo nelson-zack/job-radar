@@ -29,7 +29,7 @@ from bs4 import BeautifulSoup
 from bs4.element import Tag
 
 from radar.core.date_parse import parse_curated_date
-from radar.core.github_dates import infer_posted_at, log_inference_metrics
+from radar.core.github_dates import GitContext, infer_posted_at, log_inference_metrics
 
 # Prefer "Apply" links in HTML tags
 def _pick_href_from_tag(tag: Tag) -> Optional[str]:
@@ -533,7 +533,7 @@ def fetch_curated_github_jobs(
     only_remote: bool = True,
     us_only: bool = True,
     provider_label: str = "github",
-    git_ctx: Optional[object] = None,
+    git_ctx: Optional[GitContext] = None,
     enable_scrape: Optional[bool] = None,
     enable_inference: Optional[bool] = None,
 ) -> List[Dict]:
