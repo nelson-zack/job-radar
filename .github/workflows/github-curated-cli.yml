@@ -1,0 +1,50 @@
+name: Run GitHub curated ingest (CLI)
+
+on:
+  schedule:
+    - cron: '5 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run GitHub curated ingest
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GITHUB_CURATED_DATE_SCRAPE: 'true'
+          GITHUB_DATE_INFERENCE: 'true'
+        run: |
+          set -euo pipefail
+          echo "DATABASE_URL is set? $([ -n "${DATABASE_URL:-}" ] && echo yes || echo no)"
+          python scripts/ingest_github_curated.py | tee ingest.log
+
+      - name: Upload ingest log
+        uses: actions/upload-artifact@v4
+        with:
+          name: github-curated-ingest
+          path: ingest.log
