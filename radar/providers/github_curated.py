@@ -383,6 +383,16 @@ def _iter_rows_from_html_tables(md: str) -> Iterator[ParsedRow]:
                 cells[col["age"]] if "age" in col and len(cells) > col["age"] else ""
             )
 
+            company_href: Optional[str] = None
+            if "company" in col and len(tds) > col["company"]:
+                comp_cell = tds[col["company"]]
+                if isinstance(comp_cell, Tag):
+                    first_anchor = comp_cell.find("a")
+                    if isinstance(first_anchor, Tag):
+                        href = first_anchor.get("href")
+                        if isinstance(href, str):
+                            company_href = href.strip() or None
+
             # Prefer explicit link cell; otherwise search links in row
             url: Optional[str] = None
             if "url" in col and len(tds) > col["url"]:
@@ -391,7 +401,15 @@ def _iter_rows_from_html_tables(md: str) -> Iterator[ParsedRow]:
                     url = _pick_href_from_tag(td_cell)
             url = url or _pick_href_from_tag(tr)
 
-            yield ParsedRow(company=company, title=title, location=location, url=url, date=date_val, age=age_val)
+            yield ParsedRow(
+                company=company,
+                title=title,
+                location=location,
+                url=url,
+                company_href=company_href,
+                date=date_val,
+                age=age_val,
+            )
 
 
 # --------- Markdown table parsing -------------------------------------------
@@ -402,6 +420,7 @@ class ParsedRow:
     title: str
     location: str
     url: Optional[str]
+    company_href: Optional[str] = None
     date: str = ""
     age: str = ""
     posted_at: str = ""
@@ -462,7 +481,7 @@ def _find_col_idx(header_cells: list[str]) -> Dict[str, int]:
             idx.setdefault("title", i)
         if any(k in hl for k in ("location", "locations")):
             idx.setdefault("location", i)
-        if any(k in hl for k in ("apply", "link", "url", "posting")):
+        if any(k in hl for k in ("apply", "application", "link", "url", "posting")):
             idx.setdefault("url", i)
         if any(k in hl for k in ("date", "posted", "posted on", "updated", "last update", "last updated")):
             idx.setdefault("date", i)
@@ -483,7 +502,8 @@ def _iter_rows_from_md(md: str) -> Iterator[ParsedRow]:
             # pad short rows
             if len(r) < len(header):
                 r = r + [""] * (len(header) - len(r))
-            company = r[col.get("company", 0)]
+            company_cell = r[col.get("company", 0)]
+            company_link_text, company_link = _extract_link(company_cell)
             title = r[col.get("title", 0)]
             location = r[col.get("location", 0)] if "location" in col else ""
             url_cell = r[col.get("url", 0)] if "url" in col else ""
@@ -492,11 +512,19 @@ def _iter_rows_from_md(md: str) -> Iterator[ParsedRow]:
             if not url:
                 _, url = _extract_link(title)
             # Clean company/title plain text (remove markdown)
-            company = _clean_company_name(_LINK_RE.sub(lambda m: m.group(1), company).strip())
+            company = _clean_company_name(_LINK_RE.sub(lambda m: m.group(1), company_cell).strip())
             title = _LINK_RE.sub(lambda m: m.group(1), title).strip()
             date_val = r[col.get("date", 0)] if "date" in col else ""
             age_val = r[col.get("age", 0)] if "age" in col else ""
-            yield ParsedRow(company=company, title=title, location=location, url=url, date=date_val, age=age_val)
+            yield ParsedRow(
+                company=company,
+                title=title,
+                location=location,
+                url=url,
+                company_href=company_link,
+                date=date_val,
+                age=age_val,
+            )
 
 
 def _iter_rows_from_bullets(md: str) -> Iterator[ParsedRow]:
@@ -586,6 +614,13 @@ def fetch_curated_github_jobs(
                 return
             if row_url in seen_urls:
                 return
+
+            legacy_external_id = None
+            if getattr(row, "company_href", None):
+                legacy_url = _canonicalize_url(row.company_href)
+                if legacy_url and legacy_url != row_url:
+                    legacy_external_id = _hash_external(legacy_url)
+
             comp = _clean_company_name(row.company or "")
             title = row.title or ""
             location = row.location or ""
@@ -618,6 +653,9 @@ def fetch_curated_github_jobs(
                 "is_remote": bool(is_remote),
                 "level": level,
             }
+
+            if legacy_external_id and legacy_external_id != external_id:
+                payload["legacy_external_id"] = legacy_external_id
 
             date_candidates = []
             for attr in ("date", "age", "posted_at"):

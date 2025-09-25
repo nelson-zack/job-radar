@@ -4,6 +4,7 @@ from typing import Dict
 
 PROVIDER_STATUS: Dict[str, str] = {
     "greenhouse": "supported",
+    "github": "supported",
     "ashby": "experimental",
     "workday": "experimental",
     "lever": "experimental",

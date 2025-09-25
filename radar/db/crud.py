@@ -154,6 +154,7 @@ def upsert_job(session: Session, job_data: dict) -> Job:
     skills = job_data.pop("skills", None)
     company_name = job_data.pop("company", None)
     company_slug = job_data.pop("company_slug", None)
+    legacy_external_id = job_data.pop("legacy_external_id", None)
 
     # Accept description_html (from scrapers) as description if not provided
     desc_html = job_data.pop("description_html", None)
@@ -174,6 +175,14 @@ def upsert_job(session: Session, job_data: dict) -> Job:
     if provider:
         q = q.filter(Job.provider == provider)
     job = q.one_or_none()
+
+    if job is None and legacy_external_id:
+        legacy_q = session.query(Job).filter(Job.external_id == legacy_external_id)
+        if provider:
+            legacy_q = legacy_q.filter(Job.provider == provider)
+        job = legacy_q.one_or_none()
+        if job is not None:
+            job.external_id = external_id
 
     # Ensure company_id if not already provided
     if not job_data.get("company_id"):

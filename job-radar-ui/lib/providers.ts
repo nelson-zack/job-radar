@@ -2,6 +2,7 @@ import { ENABLE_EXPERIMENTAL } from '../utils/env';
 
 export const PROVIDER_STATUS: Record<string, 'supported' | 'experimental' | 'planned'> = {
   greenhouse: 'supported',
+  github: 'supported',
   ashby: 'experimental',
   workday: 'experimental',
   lever: 'experimental',
