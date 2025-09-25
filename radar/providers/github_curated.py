@@ -123,8 +123,15 @@ def _canonicalize_url(u: str) -> Optional[str]:
         # Drop Simplify "company" pages; keep only if gh_jid is present
         if host == "simplify.jobs":
             parts = sp.path.strip("/").split("/", 1)
-            if parts and parts[0] == "c" and "gh_jid" not in keep:
-                return None
+            if parts:
+                first = parts[0]
+                # Keep Simplify landing pages ("/p/" or "/c/") even when there
+                # isn't a gh_jid query param. These still represent concrete job
+                # postings and should not be dropped during canonicalization.
+                if first in {"p", "c"}:
+                    pass
+                elif "gh_jid" not in keep:
+                    return None
 
         # Rebuild URL with trimmed query
         cleaned = urlunsplit((sp.scheme, sp.netloc, sp.path, urlencode(keep, doseq=True), sp.fragment))
