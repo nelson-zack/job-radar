@@ -36,14 +36,28 @@ export default async function Home({
   const offset = page * limit;
 
   // Only include filters if they are meaningful (avoid level=any, empty skills)
-  const data: JobsResponse = await fetchJobs({
-    ...(level !== 'any' ? { level } : {}),
-    ...(skills ? { skills_any: skills } : {}),
-    ...(providerFilter !== 'all' ? { provider: providerFilter } : {}),
-    limit,
-    offset,
-    order
-  });
+  let data: JobsResponse;
+  let fetchError: string | null = null;
+
+  try {
+    data = await fetchJobs({
+      ...(level !== 'any' ? { level } : {}),
+      ...(skills ? { skills_any: skills } : {}),
+      ...(providerFilter !== 'all' ? { provider: providerFilter } : {}),
+      limit,
+      offset,
+      order
+    });
+  } catch (error) {
+    console.error('Failed to load jobs from API', error);
+    fetchError = 'Unable to load jobs right now. Please retry shortly.';
+    data = {
+      items: [],
+      total: 0,
+      limit,
+      offset
+    };
+  }
 
   const providerOptions = getVisibleProviders(ENABLE_EXPERIMENTAL);
 
@@ -88,6 +102,12 @@ export default async function Home({
         initialProvider={providerFilter}
         providers={providerOptions}
       />
+
+      {fetchError ? (
+        <div className='mb-4 rounded-2xl border border-red-400/40 bg-red-500/10 p-4 text-sm font-medium text-red-200 shadow-[var(--shadow-sm)]'>
+          {fetchError}
+        </div>
+      ) : null}
 
       {activeChips.length > 0 && (
         <div className='mb-4 flex flex-wrap items-center gap-2 text-xs'>
