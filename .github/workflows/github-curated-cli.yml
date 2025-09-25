@@ -41,7 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "DATABASE_URL is set? $([ -n "${DATABASE_URL:-}" ] && echo yes || echo no)"
-          python github_curated.py | tee ingest.log
+          python scripts/ingest_github_curated.py | tee ingest.log
 
       - name: Upload ingest log
         uses: actions/upload-artifact@v4

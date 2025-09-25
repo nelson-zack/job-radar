@@ -7,10 +7,12 @@ output/
 .DS_Store
 test_ashby.json
 quick_companies.json
+.pytest_cache/
 
 # Local SQLite fallback
-radar.dbscripts/test_github_curated.py
-scripts/ingest_github_curated.py
 radar.db
 scripts/test_github_curated.py
 .vercel
+
+# Local env files
+job-radar-ui/.env.local
