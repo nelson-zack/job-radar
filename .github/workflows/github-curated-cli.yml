@@ -2,7 +2,7 @@ name: Run GitHub curated ingest (CLI)
 
 on:
   schedule:
-    - cron: '5 4 * * *'
+    - cron: '10 */4 * * *'
   workflow_dispatch:
 
 permissions:

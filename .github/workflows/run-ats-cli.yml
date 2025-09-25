@@ -1,6 +1,8 @@
 name: Run ATS scan (manual, CLI)
 
 on:
+  schedule:
+    - cron: '0 */4 * * *'
   workflow_dispatch:
 
 permissions:

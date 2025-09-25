@@ -2,8 +2,8 @@ name: Nightly curated ingest
 
 on:
   schedule:
-    - cron: '20 3 * * *' # 03:20 UTC nightly (adjust as you like)
-  workflow_dispatch: # allow manual runs
+    - cron: '20 */4 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
