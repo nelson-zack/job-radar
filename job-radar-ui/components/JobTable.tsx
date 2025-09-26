@@ -49,7 +49,7 @@ function JobCard({ job }: { job: Job }) {
       <header className='flex items-start justify-between gap-3'>
         <div className='space-y-1'>
           <h3 className='text-base font-semibold text-[var(--text-strong)]'>{companyDisplay}</h3>
-          {job.company && job.company !== companyDisplay ? (
+          {shouldShowSlug(job.company, companyDisplay) ? (
             <p className='text-[0.65rem] uppercase tracking-[0.2em] text-[var(--muted)]'>
               {job.company}
             </p>
