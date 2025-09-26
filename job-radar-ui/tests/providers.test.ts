@@ -5,7 +5,7 @@ import { getVisibleProviders } from '../lib/providers';
 
 test('getVisibleProviders returns supported providers when experimental disabled', () => {
   const providers = getVisibleProviders(false);
-  assert.deepEqual(providers, ['all', 'greenhouse']);
+  assert.deepEqual(providers, ['all', 'greenhouse', 'github']);
 });
 
 test('getVisibleProviders includes experimental providers when enabled', () => {
