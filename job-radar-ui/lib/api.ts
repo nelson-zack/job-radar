@@ -34,6 +34,11 @@ export type JobsResponse = {
   offset: number;
 };
 
+export type FetchJobsOptions = {
+  revalidateSeconds?: number;
+  cache?: RequestCache;
+};
+
 type QueryParams = Record<string, string | number | boolean | undefined>;
 
 type ApiFetchOptions = (RequestInit & { query?: QueryParams }) & {
@@ -97,13 +102,22 @@ export async function apiFetch(path: string, options: ApiFetchOptions = {}) {
 }
 
 export async function fetchJobs(
-  params: Record<string, string | number | boolean | undefined> = {}
+  params: Record<string, string | number | boolean | undefined> = {},
+  options: FetchJobsOptions = {}
 ) {
-  const r = await apiFetch('/jobs', {
+  const { revalidateSeconds = 0, cache } = options;
+  const requestOptions: ApiFetchOptions = {
     query: params,
-    cache: 'no-store',
-    next: { revalidate: 0 }
-  });
+    next: { revalidate: revalidateSeconds }
+  };
+  if (cache) {
+    requestOptions.cache = cache;
+  } else if (revalidateSeconds > 0) {
+    requestOptions.cache = 'force-cache';
+  } else {
+    requestOptions.cache = 'no-store';
+  }
+  const r = await apiFetch('/jobs', requestOptions);
   if (!r.ok) {
     const body = await r.text().catch(() => '');
     const errorUrl = r.url || buildApiUrl('/jobs', params);
