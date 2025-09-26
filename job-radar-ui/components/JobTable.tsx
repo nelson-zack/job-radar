@@ -31,17 +31,13 @@ function formatPosted(date: string | null | undefined) {
 
 function levelBadge(level?: string | null) {
   const normalized = (level ?? 'unknown').toLowerCase();
-  const label = normalized === 'unknown' ? 'Unknown' : normalized;
-  if (normalized === 'junior' || normalized === 'entry') {
-    return <Badge variant='accent'>{label}</Badge>;
+  if (normalized === 'senior') {
+    return <Badge variant='warning'>Senior</Badge>;
   }
   if (normalized === 'mid') {
     return <Badge variant='neutral'>Mid</Badge>;
   }
-  if (normalized === 'senior') {
-    return <Badge variant='warning'>Senior</Badge>;
-  }
-  return <Badge variant='muted'>{label}</Badge>;
+  return <Badge variant='accent'>Junior</Badge>;
 }
 
 function JobCard({ job }: { job: Job }) {
