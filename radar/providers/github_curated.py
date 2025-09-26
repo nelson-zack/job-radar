@@ -14,6 +14,7 @@ Sources (curated spreadsheets / READMEs):
 """
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Iterable, Iterator, List, Dict, Optional, Tuple, Set
 import hashlib
 import logging
@@ -597,6 +598,8 @@ def fetch_curated_github_jobs(
     parsed_dates = 0
     inferred_dates = 0
     undated_after = 0
+    fallback_assigned = 0
+    run_timestamp = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
     for src in sources:
         md = _fetch_markdown(src)
         if not md:
@@ -606,7 +609,7 @@ def fetch_curated_github_jobs(
         produced = 0
 
         def _process_row(row: ParsedRow) -> None:
-            nonlocal produced, parsed_dates, inferred_dates, undated_after
+            nonlocal produced, parsed_dates, inferred_dates, undated_after, fallback_assigned
             if not row.url:
                 return
             row_url = _canonicalize_url(row.url)
@@ -678,9 +681,9 @@ def fetch_curated_github_jobs(
                     if inferred_dt is not None:
                         payload["posted_at"] = inferred_dt
                         inferred_dates += 1
-                    else:
-                        undated_after += 1
-                else:
+                if payload.get("posted_at") is None:
+                    payload["posted_at"] = run_timestamp
+                    fallback_assigned += 1
                     undated_after += 1
 
             jobs.append(payload)
@@ -705,10 +708,11 @@ def fetch_curated_github_jobs(
 
     if scrape_enabled:
         log.info(
-            "github-date-scrape provider=%s parsed=%s inferred=%s undated=%s total=%s",
+            "github-date-scrape provider=%s parsed=%s inferred=%s fallback=%s undated=%s total=%s",
             provider_label,
             parsed_dates,
             inferred_dates,
+            fallback_assigned,
             undated_after,
             len(jobs),
         )

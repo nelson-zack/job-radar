@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 import re
 
 MONTHS = {
@@ -26,7 +26,7 @@ AGE_SHORT = re.compile(r"^(\d+)([dhw])$", re.I)
 
 
 def parse_curated_date(text: str, *, now: datetime | None = None) -> datetime | None:
-    now = now or datetime.utcnow()
+    now = now or datetime.now(UTC)
     if now.tzinfo:
         now = now.astimezone(timezone.utc).replace(tzinfo=None)
     else:
