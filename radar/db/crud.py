@@ -181,8 +181,17 @@ def upsert_job(session: Session, job_data: dict) -> Job:
         if provider:
             legacy_q = legacy_q.filter(Job.provider == provider)
         job = legacy_q.one_or_none()
+        if job is None:
+            # Legacy curated rows may predate provider tagging; retry without provider filter.
+            job = (
+                session.query(Job)
+                .filter(Job.external_id == legacy_external_id)
+                .one_or_none()
+            )
         if job is not None:
             job.external_id = external_id
+            if provider and job.provider != provider:
+                job.provider = provider
 
     # Ensure company_id if not already provided
     if not job_data.get("company_id"):
