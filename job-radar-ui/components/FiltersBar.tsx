@@ -155,10 +155,24 @@ export default function FiltersBar({
 
 
         <div className='flex h-full items-end justify-end gap-2 self-stretch sm:gap-3'>
-          <Button type='button' variant='ghost' onClick={handleReset}>
+          <Button
+            type='button'
+            variant='ghost'
+            onClick={handleReset}
+            className='transition-transform duration-150 ease-out active:scale-95 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-3)]'
+          >
             Reset
           </Button>
-          <Button type='submit'>Search</Button>
+          <Button
+            type='submit'
+            className='group relative overflow-hidden transition-transform duration-150 ease-out active:scale-95 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-3)]'
+          >
+            <span
+              className='absolute inset-0 scale-0 rounded-full bg-[var(--accent)]/20 transition-transform duration-200 ease-out group-active:scale-150'
+              aria-hidden
+            />
+            <span className='relative'>Search</span>
+          </Button>
         </div>
       </form>
     </section>
