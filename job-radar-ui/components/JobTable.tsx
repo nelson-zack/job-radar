@@ -5,6 +5,21 @@ type Props = { jobs: Job[] };
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
 
+function normalizeLabel(value?: string | null) {
+  if (!value) return '';
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function shouldShowSlug(slug?: string | null, display?: string | null) {
+  if (!slug) return false;
+  const normalizedSlug = normalizeLabel(slug);
+  const normalizedDisplay = normalizeLabel(display);
+  if (!normalizedSlug) return false;
+  return normalizedSlug !== normalizedDisplay;
+}
+
 function formatPosted(date: string | null | undefined) {
   if (!date) return '—';
   const iso = date.slice(0, 10);
@@ -130,9 +145,7 @@ export default function JobTable({ jobs }: Props) {
               {jobs.map((job) => {
                 const companyDisplay = job.company_name || job.company;
                 const posted = formatPosted(job.posted_at ?? null);
-                const slug = job.company && job.company_name && job.company !== job.company_name
-                  ? job.company
-                  : null;
+                const slug = shouldShowSlug(job.company, companyDisplay) ? job.company : null;
 
                 return (
                   <tr key={job.id}>
