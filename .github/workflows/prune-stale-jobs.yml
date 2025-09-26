@@ -1,0 +1,50 @@
+name: Prune stale jobs
+
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Prune jobs past retention window
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JOB_RETENTION_DAYS: ${{ vars.JOB_RETENTION_DAYS || '30' }}
+        run: |
+          set -euo pipefail
+          export PYTHONPATH="$PWD:${PYTHONPATH:-}"
+          echo "Using retention window: ${JOB_RETENTION_DAYS} days"
+          python scripts/prune_old_jobs.py --days "${JOB_RETENTION_DAYS}" | tee prune.log
+
+      - name: Upload prune summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: prune-summary
+          path: prune.log
